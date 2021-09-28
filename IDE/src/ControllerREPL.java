@@ -1,6 +1,7 @@
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.stage.FileChooser;
+import org.fxmisc.richtext.CodeArea;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -14,6 +15,9 @@ import java.util.stream.Collectors;
 
 public class ControllerREPL
 {
+    @FXML
+    public CodeArea inputcode;
+
 
     //  --REPL Controller Items--
     /**
