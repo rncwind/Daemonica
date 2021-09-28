@@ -3,16 +3,22 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.io.File;
+
+/**
+ * Author: Emilia Rose
+ * Desc: Manages transition between views, and pointers to controllers
+ */
+
 public class ViewManager
 {
-    public static ControllerREPL CR;
-    public static ControllerEditor CE;
+    private static ControllerREPL CR;
+    private static ControllerEditor CE;
 
-    public static Stage EditorStage;
+    private static Stage EditorStage;
 
     ViewManager()
     {
-        System.out.println("Constructing");
         try
         {
             FXMLLoader loader = new FXMLLoader();
@@ -20,8 +26,6 @@ public class ViewManager
             loader.load();
             CR = loader.getController();
 
-
-            System.out.println("hi");
             FXMLLoader loaderFE = new FXMLLoader();
             loaderFE.setLocation(getClass().getResource("FileEditor.fxml"));
             Parent EP = loaderFE.load();
@@ -35,6 +39,21 @@ public class ViewManager
         }
     }
 
+    public static ControllerEditor getCE()
+    {
+        return CE;
+    }
+
+    public static ControllerREPL getCR()
+    {
+        return CR;
+    }
+
+    public static Stage getEditorStage()
+    {
+        return EditorStage;
+    }
+
     private Stage createStage(Parent P, String title)
     {
         //Create Scene for Editor
@@ -44,10 +63,12 @@ public class ViewManager
         return stage;
     }
 
-    public static void editor_view()
+    public static void editor_view(String text, String title, File currentFile)
     {
         //Allows the stage to be kept
-        CE.codezone.setText("");
+        CE.codezone.setText(text);
+        CE.currentFile = currentFile;
+        EditorStage.setTitle(title);
         EditorStage.show();
     }
 }
