@@ -1,20 +1,27 @@
-
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+/**
+ * Author: Emilia Rose
+ * Desc: Starts the GUI
+ */
+
 public class Main extends Application {
 
     @Override
-    public void start(Stage primaryStage) throws Exception{
-        Parent root = FXMLLoader.load(getClass().getResource("sample.fxml"));
-        primaryStage.setTitle("Hello World");
+    public void start(Stage primaryStage) throws Exception
+    {
+        Parent root = FXMLLoader.load(getClass().getResource("repl.fxml"));
+        primaryStage.setTitle("Daemonium Bibliotheca");
         primaryStage.setScene(new Scene(root, 300, 275));
         primaryStage.show();
-    }
 
+        new ViewManager();
+
+    }
 
     public static void main(String[] args) {
         launch(args);
