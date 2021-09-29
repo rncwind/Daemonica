@@ -2,6 +2,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
+import org.fxmisc.richtext.CodeArea;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,7 +15,7 @@ import java.io.FileWriter;
 public class ControllerEditor
 {
     @FXML
-    public TextArea codezone;
+    public CodeArea codezone;
 
     public File currentFile;
 

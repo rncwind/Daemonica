@@ -18,7 +18,6 @@ public class ControllerREPL
     @FXML
     public CodeArea inputcode;
 
-
     //  --REPL Controller Items--
     /**
      * Opens the editor scene upon clicking 'new file' in the REPL

@@ -1,7 +1,12 @@
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.LineNumberFactory;
 
 import java.io.File;
 
@@ -28,8 +33,15 @@ public class ViewManager
 
             FXMLLoader loaderFE = new FXMLLoader();
             loaderFE.setLocation(getClass().getResource("FileEditor.fxml"));
-            Parent EP = loaderFE.load();
+            BorderPane EP = loaderFE.load();
             CE = loaderFE.getController();
+
+            //Sets the CodeAreas to have line numbers for the Editor
+            CodeArea CA = CE.codezone;
+            CA.setParagraphGraphicFactory(LineNumberFactory.get(CA));
+            ScrollPane SP = (ScrollPane) EP.getChildren().get(0);
+            SP.setContent(new StackPane(new VirtualizedScrollPane<>(CE.codezone)));
+
 
             EditorStage = createStage(EP, "Daemonium Bibliotheca Editor");
         }
@@ -66,7 +78,7 @@ public class ViewManager
     public static void editor_view(String text, String title, File currentFile)
     {
         //Allows the stage to be kept
-        CE.codezone.setText(text);
+        CE.codezone.replaceText(text);
         CE.currentFile = currentFile;
         EditorStage.setTitle(title);
         EditorStage.show();
