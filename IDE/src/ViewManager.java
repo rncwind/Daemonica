@@ -27,37 +27,28 @@ public class ViewManager
 
 
 
-    ViewManager()
+    ViewManager(Stage ps)
     {
         try
         {
             FXMLLoader loader = new FXMLLoader();
             loader.setLocation(getClass().getResource("repl.fxml"));
-            loader.load();
+            BorderPane P = loader.load();
             CR = loader.getController();
+
+            createStage(ps, P,"Daemonium Bibliotheca");
+            ps.show();
+
 
             FXMLLoader loaderFE = new FXMLLoader();
             loaderFE.setLocation(getClass().getResource("FileEditor.fxml"));
             BorderPane EP = loaderFE.load();
             CE = loaderFE.getController();
 
-
-
             EditorStage = createStage(EP, "Daemonium Bibliotheca Editor");
 
-            //You can add stuff after a stage has been created!!!
-            CE.addLineNums(CE.codezone);
-
-
-
-
-
-            //TODO: have tabs created dynamically via code, and have loading call that func
-            // This allows us to avoid using fxml as much as possilbe to stay dynamic
-
-
-            //Tab tab1 = new Tab("Planes", new Label("Show all planes available"));
-            //TP.getTabs().add(tab1);
+            Utility.addLineNums(CE.codezone, (Pane) EP);
+            Utility.addLineNums(CR.inputcode, (Pane) (P.getChildren().get(0)));
         }
         catch (Exception e)
         {
@@ -87,6 +78,13 @@ public class ViewManager
         stage.setTitle(title);
         stage.setScene(new Scene(P, 400, 600));
         return stage;
+    }
+
+    private void createStage(Stage s, Parent P, String title)
+    {
+        //Create Scene for Editor
+        s.setTitle(title);
+        s.setScene(new Scene(P, 400, 600));
     }
 
     public static void editor_view(String text, String title, File currentFile)

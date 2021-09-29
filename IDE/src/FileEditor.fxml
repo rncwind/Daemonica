@@ -12,6 +12,14 @@
                <AnchorPane maxHeight="0" maxWidth="0" minHeight="0.0" minWidth="0.0" prefHeight="0.0" prefWidth="0.0">
                    <children>
                        <CodeArea fx:id="codezone" lineHighlighterOn="true" minHeight="0.0" minWidth="0.0" prefHeight="0.0" prefWidth="00.0" wrapText="true" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                       <contextMenu>
+                           <ContextMenu>
+                               <items>
+                                   <MenuItem text="Copy" onAction="#copyHighlighted"></MenuItem>
+                                   <MenuItem text="Cut" onAction="#cutHighlighted"></MenuItem>
+                               </items>
+                           </ContextMenu>
+                       </contextMenu>
                        </CodeArea>
                    </children>
                </AnchorPane>

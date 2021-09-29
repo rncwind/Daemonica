@@ -1,17 +1,22 @@
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.control.IndexRange;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 
+import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -74,19 +79,23 @@ public class ControllerEditor
         saveToDisk(selectedPath);
     }
 
-    public void addLineNums(CodeArea CA)
+    @FXML
+    public void copyHighlighted(ActionEvent event)
     {
-        try
-        {
-            //Sets the CodeAreas to have line numbers for the Editor
-            BorderPane EP = (BorderPane) ViewManager.getEditorStage().getScene().getRoot();
-            CA.setParagraphGraphicFactory(LineNumberFactory.get(CA));
-            ScrollPane SP = (ScrollPane) EP.getChildren().get(0);
-            SP.setContent(new StackPane(new VirtualizedScrollPane<>(CA)));
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
+        Utility.copy(codezone);
     }
+
+    @FXML
+    public void cutHighlighted(ActionEvent event)
+    {
+        Utility.cut(codezone);
+    }
+
+    @FXML
+    public void paste(ActionEvent event)
+    {
+
+    }
+
+
 }
