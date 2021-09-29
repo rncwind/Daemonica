@@ -1,8 +1,16 @@
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
+import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.LineNumberFactory;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -64,5 +72,21 @@ public class ControllerEditor
         fileSelector.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Ritual", "*.ritual"));
         File selectedPath = fileSelector.showSaveDialog(null);
         saveToDisk(selectedPath);
+    }
+
+    public void addLineNums(CodeArea CA)
+    {
+        try
+        {
+            //Sets the CodeAreas to have line numbers for the Editor
+            BorderPane EP = (BorderPane) ViewManager.getEditorStage().getScene().getRoot();
+            CA.setParagraphGraphicFactory(LineNumberFactory.get(CA));
+            ScrollPane SP = (ScrollPane) EP.getChildren().get(0);
+            SP.setContent(new StackPane(new VirtualizedScrollPane<>(CA)));
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
     }
 }

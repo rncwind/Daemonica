@@ -1,7 +1,10 @@
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import org.fxmisc.flowless.VirtualizedScrollPane;
@@ -22,6 +25,8 @@ public class ViewManager
 
     private static Stage EditorStage;
 
+
+
     ViewManager()
     {
         try
@@ -36,14 +41,23 @@ public class ViewManager
             BorderPane EP = loaderFE.load();
             CE = loaderFE.getController();
 
-            //Sets the CodeAreas to have line numbers for the Editor
-            CodeArea CA = CE.codezone;
-            CA.setParagraphGraphicFactory(LineNumberFactory.get(CA));
-            ScrollPane SP = (ScrollPane) EP.getChildren().get(0);
-            SP.setContent(new StackPane(new VirtualizedScrollPane<>(CE.codezone)));
 
 
             EditorStage = createStage(EP, "Daemonium Bibliotheca Editor");
+
+            //You can add stuff after a stage has been created!!!
+            CE.addLineNums(CE.codezone);
+
+
+
+
+
+            //TODO: have tabs created dynamically via code, and have loading call that func
+            // This allows us to avoid using fxml as much as possilbe to stay dynamic
+
+
+            //Tab tab1 = new Tab("Planes", new Label("Show all planes available"));
+            //TP.getTabs().add(tab1);
         }
         catch (Exception e)
         {
@@ -71,7 +85,7 @@ public class ViewManager
         //Create Scene for Editor
         Stage stage = new Stage();
         stage.setTitle(title);
-        stage.setScene(new Scene(P, 500, 400));
+        stage.setScene(new Scene(P, 400, 600));
         return stage;
     }
 
