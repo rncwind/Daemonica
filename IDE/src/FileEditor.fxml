@@ -17,6 +17,7 @@
                                <items>
                                    <MenuItem text="Copy" onAction="#copyHighlighted"></MenuItem>
                                    <MenuItem text="Cut" onAction="#cutHighlighted"></MenuItem>
+                                   <MenuItem text="Paste" onAction="#paste"></MenuItem>
                                </items>
                            </ContextMenu>
                        </contextMenu>

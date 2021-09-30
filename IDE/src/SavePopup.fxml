@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<DialogPane prefHeight="75.0" prefWidth="306.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ControllerSavePopup">
+   <content>
+      <VBox alignment="CENTER" fillWidth="false">
+         <children>
+            <ButtonBar>
+              <buttons>
+                <Button mnemonicParsing="false" text="Save" onAction="#save"/>
+                  <Button mnemonicParsing="false" text="Save As" onAction="#saveAs"/>
+                  <Button mnemonicParsing="false" text="Exit" onAction="#exit"/>
+              </buttons>
+            </ButtonBar>
+         </children>
+      </VBox>
+   </content>
+   <header>
+      <Label alignment="CENTER" text="Do you want to save your work?" textAlignment="JUSTIFY">
+         <font>
+            <Font size="14.0" />
+         </font>
+      </Label>
+   </header>
+</DialogPane>

@@ -1,15 +1,9 @@
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import org.fxmisc.flowless.VirtualizedScrollPane;
-import org.fxmisc.richtext.CodeArea;
-import org.fxmisc.richtext.LineNumberFactory;
+
 
 import java.io.File;
 
@@ -22,8 +16,10 @@ public class ViewManager
 {
     private static ControllerREPL CR;
     private static ControllerEditor CE;
+    private static ControllerSavePopup CSP;
 
     private static Stage EditorStage;
+    private static Stage SaveStage;
 
 
 
@@ -31,21 +27,40 @@ public class ViewManager
     {
         try
         {
+            //REPL
             FXMLLoader loader = new FXMLLoader();
             loader.setLocation(getClass().getResource("repl.fxml"));
             BorderPane P = loader.load();
             CR = loader.getController();
-
             createStage(ps, P,"Daemonium Bibliotheca");
             ps.show();
 
-
+            //Editor
             FXMLLoader loaderFE = new FXMLLoader();
             loaderFE.setLocation(getClass().getResource("FileEditor.fxml"));
             BorderPane EP = loaderFE.load();
             CE = loaderFE.getController();
+            EditorStage = createStage(EP, "Daemonium Bibliotheca Editor", 400, 600);
 
-            EditorStage = createStage(EP, "Daemonium Bibliotheca Editor");
+            //Save popup
+            FXMLLoader loaderS = new FXMLLoader();
+            loaderS.setLocation(getClass().getResource("SavePopup.fxml"));
+            Pane SP = loaderS.load();
+            CSP = loaderS.getController();
+            SaveStage = createStage(SP, "Do you want to save?", 300,70);
+
+
+            //Lambda to do sneaky code whenever stage closed
+            EditorStage.setOnHiding( event ->
+            {
+                String comp = Utility.MD5Hash(CE.codezone.getText());
+                if (!comp.equals(CE.hash))
+                {
+                    System.out.println("File changed");
+                    SaveStage.showAndWait();
+                }
+            } );
+
 
             Utility.addLineNums(CE.codezone, (Pane) EP);
             Utility.addLineNums(CR.inputcode, (Pane) (P.getChildren().get(0)));
@@ -71,12 +86,17 @@ public class ViewManager
         return EditorStage;
     }
 
-    private Stage createStage(Parent P, String title)
+    public static Stage getSaveStage()
+    {
+        return SaveStage;
+    }
+
+    private Stage createStage(Parent P, String title, int hor, int ver)
     {
         //Create Scene for Editor
         Stage stage = new Stage();
         stage.setTitle(title);
-        stage.setScene(new Scene(P, 400, 600));
+        stage.setScene(new Scene(P, hor, ver));
         return stage;
     }
 
@@ -92,6 +112,10 @@ public class ViewManager
         //Allows the stage to be kept
         CE.codezone.replaceText(text);
         CE.currentFile = currentFile;
+
+        //Due to how .getText() formats the return, it has to be used for the hash otherwise it will mismatch even
+        // without any text changes
+        CE.hash = Utility.MD5Hash(CE.codezone.getText());
         EditorStage.setTitle(title);
         EditorStage.show();
     }
