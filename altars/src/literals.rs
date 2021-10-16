@@ -1,3 +1,6 @@
+use core::fmt;
+use std::fmt::Display;
+
 // Conventionally these things are stored as void*s or Objects. (un)fortunatley
 // rust takes inspiration from ML so all of our types need to be concrete.
 // To handle the fact we have a lot of different literals that can exist we
@@ -5,9 +8,25 @@
 // only refering to some Literal type, when it contains some value.
 // As a wise man once said, there is power in a union.
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     Number(f64),
     StrLit(String),
     Empty,
+}
+
+impl Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self  {
+            Literal::Number(x) => {
+                write!(f, "{}", x)
+            },
+            Literal::StrLit(x) => {
+                write!(f, "{}", x)
+            },
+            Literal::Empty => {
+                write!(f, "Empty")
+            },
+        }
+    }
 }

@@ -2,22 +2,34 @@ mod tokentype;
 mod token;
 mod literals;
 mod scanner;
+mod ast;
+mod interpreter;
+mod astprinter;
 
 use std::env;
 use std::fs;
 use std::io;
 
+use ast::Expr;
+use literals::Literal;
+use tokentype::TokenType;
+use token::Token;
+
+use crate::astprinter::AstPrinter;
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    match args.len() {
-        1 => repl(),
-        2 => match run_file(args.get(1).unwrap().clone()) {
-            _ => {}
-        },
-        _ => {
-            println!("Usage: altars [ritual]");
-        }
-    }
+    let expression: Expr = Expr::Binary(
+        Box::new(Expr::Unary(
+            Token::new(TokenType::Minus, "-".to_string(), Literal::Empty, 1),
+            Box::new(Expr::Literal(Literal::Number(123.0))),
+        )),
+        Token::new(TokenType::Star, "*".to_string(), Literal::Empty, 1),
+        Box::new(Expr::Grouping(
+            Box::new(Expr::Literal(Literal::Number(45.67)))
+        )),
+    );
+    let mut p = AstPrinter{};
+    println!("{}", p.print(expression));
 }
 
 fn read_file(path: String) -> Result<String, io::Error> {
