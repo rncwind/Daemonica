@@ -18,11 +18,11 @@ pub enum Stmt {
     Function(Token, Vec<Token>, Vec<Stmt>),
     If(Expr, Box<Stmt>, Box<Stmt>),
     Return(Token, Expr),
-    Var(Token,Expr),
+    Var(Token, Expr),
     While(Expr, Box<Stmt>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
@@ -37,6 +37,8 @@ pub enum Expr {
     Variable(Token),
 }
 
+/// This is a trait that allows any given struct to implement the visitor pattern
+/// for any of statement or expression.
 pub trait Visitor<T> {
     fn visit_stmt(&mut self, x: &Stmt) -> T;
     fn visit_expr(&mut self, x: &Expr) -> T;

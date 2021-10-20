@@ -12,21 +12,25 @@ use std::fmt::Display;
 pub enum Literal {
     Number(f64),
     StrLit(String),
+    Bool(bool),
     Empty,
 }
 
 impl Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self  {
+        match self {
             Literal::Number(x) => {
                 write!(f, "{}", x)
-            },
+            }
             Literal::StrLit(x) => {
                 write!(f, "{}", x)
-            },
+            }
             Literal::Empty => {
                 write!(f, "Empty")
-            },
+            }
+            Literal::Bool(x) => {
+                write!(f, "{}", x)
+            }
         }
     }
 }

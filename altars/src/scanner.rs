@@ -1,16 +1,14 @@
 use std::collections::HashMap;
-use std::ops::AddAssign;
-use std::str::Chars;
 
 use substring::Substring;
 
 use lazy_static::*;
 
 use crate::literals::Literal;
-use crate::tokentype::TokenType;
 use crate::token::Token;
+use crate::tokentype::TokenType;
 
-struct Scanner {
+pub struct Scanner {
     src: String,
     tokens: Vec<Token>,
     start: usize,
@@ -25,30 +23,30 @@ enum ScanError {
     NumParseError((usize, String)),
 }
 
-lazy_static!{
+lazy_static! {
     static ref KEYWORDS: HashMap<String, TokenType> = {
         let mut m = HashMap::new();
         m.insert("et".to_string(), TokenType::And);
-            m.insert("vel".to_string(), TokenType::Or);
-            m.insert("si".to_string(), TokenType::If);
-            m.insert("aliter".to_string(), TokenType::Else);
-            m.insert("verum".to_string(), TokenType::True);
-            m.insert("mendacium".to_string(), TokenType::False);
-            m.insert("incantatio".to_string(), TokenType::Fn);
-            m.insert("beneficium".to_string(), TokenType::Return);
-            m.insert("enim".to_string(), TokenType::For);
-            m.insert("dum".to_string(), TokenType::While);
-            m.insert("nihil".to_string(), TokenType::None);
-            m.insert("anima".to_string(), TokenType::Self_);
-            m.insert("cero".to_string(), TokenType::Var);
-            m.insert("daemonium".to_string(), TokenType::Class);
-            m.insert("cognatio".to_string(), TokenType::Super);
+        m.insert("vel".to_string(), TokenType::Or);
+        m.insert("si".to_string(), TokenType::If);
+        m.insert("aliter".to_string(), TokenType::Else);
+        m.insert("verum".to_string(), TokenType::True);
+        m.insert("mendacium".to_string(), TokenType::False);
+        m.insert("incantatio".to_string(), TokenType::Fn);
+        m.insert("beneficium".to_string(), TokenType::Return);
+        m.insert("enim".to_string(), TokenType::For);
+        m.insert("dum".to_string(), TokenType::While);
+        m.insert("nihil".to_string(), TokenType::None);
+        m.insert("anima".to_string(), TokenType::Self_);
+        m.insert("cero".to_string(), TokenType::Var);
+        m.insert("daemonium".to_string(), TokenType::Class);
+        m.insert("cognatio".to_string(), TokenType::Super);
         return m;
     };
 }
 
 impl Scanner {
-    fn new(src: String) -> Scanner {
+    pub fn new(src: String) -> Scanner {
         Scanner {
             src,
             tokens: Vec::new(),
@@ -58,58 +56,87 @@ impl Scanner {
         }
     }
 
-    fn scan_tokens(&mut self) -> Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         // This allows us for some flow control wherein if we do find an invalid
         // section, then we keep on going until we reach the end, and only THEN
         // panic. This lets us catch all the lexing errors at once.
         let mut hadError: bool = false;
-        while !self.at_end()  {
+        while !self.at_end() {
             self.start = self.current;
             // Scan a token and add it to the vec of tokens
             match self.scan_token() {
                 // If no errors keep on going
-                Ok(_) => {},
+                Ok(_) => {}
                 // Error reporting
-                Err(x) => {
-                    match x {
-                        ScanError::UknownCharacter(x) => {
-                            eprintln!("Scanned invald token {} on line {}", x.1, x.0);
-                            hadError = true;
-                        },
-                        ScanError::UnterminatedBlock(x) => {
-                            eprintln!("Lexer encountered unterminated block comment ('/* */') at line {}", x)
-                        },
-                        ScanError::UnterminatedString(x) => {
-                            eprintln!("Lexer encountered unterminated String at line {}", x)
-                        }
-                        ScanError::NumParseError(x) => {
-                            eprintln!("Lexer encountered invalid number {} at line {}", x.1, x.0);
-                        }
+                Err(x) => match x {
+                    ScanError::UknownCharacter(x) => {
+                        eprintln!("Scanned invald token {} on line {}", x.1, x.0);
+                        hadError = true;
+                    }
+                    ScanError::UnterminatedBlock(x) => {
+                        eprintln!(
+                            "Lexer encountered unterminated block comment ('/* */') at line {}",
+                            x
+                        )
+                    }
+                    ScanError::UnterminatedString(x) => {
+                        eprintln!("Lexer encountered unterminated String at line {}", x)
+                    }
+                    ScanError::NumParseError(x) => {
+                        eprintln!("Lexer encountered invalid number {} at line {}", x.1, x.0);
                     }
                 },
             }
         }
-        self.tokens.push(Token::new(TokenType::EOF, "".to_string(),
-                                   Literal::Empty, self.line));
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            "".to_string(),
+            Literal::Empty,
+            self.line,
+        ));
         match hadError {
-            true => { panic!("Invalid tokens found. Terminating"); }
-            false => { return self.tokens.clone(); }
+            true => {
+                panic!("Invalid tokens found. Terminating");
+            }
+            false => {
+                return self.tokens.clone();
+            }
         }
     }
 
-    fn scan_token(&mut self) -> Result<(), ScanError>{
+    fn scan_token(&mut self) -> Result<(), ScanError> {
         let c: char = self.next();
         match c {
-            '(' => { self.add_token(TokenType::LeftParen); },
-            ')' => { self.add_token(TokenType::RightParen); },
-            '{' => { self.add_token(TokenType::LeftBrace); },
-            '}' => { self.add_token(TokenType::RightBrace); },
-            ';' => { self.add_token(TokenType::Semicolon); },
-            ',' => { self.add_token(TokenType::Comma); },
-            '.' => { self.add_token(TokenType::Dot); },
-            '*' => { self.add_token(TokenType::Star); },
-            '-' => { self.add_token(TokenType::Minus); },
-            '+' => { self.add_token(TokenType::Plus); },
+            '(' => {
+                self.add_token(TokenType::LeftParen);
+            }
+            ')' => {
+                self.add_token(TokenType::RightParen);
+            }
+            '{' => {
+                self.add_token(TokenType::LeftBrace);
+            }
+            '}' => {
+                self.add_token(TokenType::RightBrace);
+            }
+            ';' => {
+                self.add_token(TokenType::Semicolon);
+            }
+            ',' => {
+                self.add_token(TokenType::Comma);
+            }
+            '.' => {
+                self.add_token(TokenType::Dot);
+            }
+            '*' => {
+                self.add_token(TokenType::Star);
+            }
+            '-' => {
+                self.add_token(TokenType::Minus);
+            }
+            '+' => {
+                self.add_token(TokenType::Plus);
+            }
             // We need lookahead on these, so we look 1c ahead for thse pesky
             // compoud operations.
             '!' => {
@@ -118,21 +145,21 @@ impl Scanner {
                 } else {
                     self.add_token(TokenType::Bang)
                 }
-            },
+            }
             '=' => {
                 if self.match_next('=') {
                     self.add_token(TokenType::EqualEqual);
                 } else {
                     self.add_token(TokenType::Equal);
                 }
-            },
+            }
             '>' => {
                 if self.match_next('=') {
                     self.add_token(TokenType::GreaterEqual);
                 } else {
                     self.add_token(TokenType::Greater);
                 }
-            },
+            }
             '<' => {
                 if self.match_next('=') {
                     self.add_token(TokenType::LessEqual);
@@ -142,8 +169,8 @@ impl Scanner {
             }
             '/' => {
                 // Check for divide or line comment
-                if self.match_next('/')  {
-                    while self.peek() != '\n' && !self.at_end()  {
+                if self.match_next('/') {
+                    while self.peek() != '\n' && !self.at_end() {
                         self.next();
                     }
                 }
@@ -161,9 +188,7 @@ impl Scanner {
                             return Err(ScanError::UnterminatedBlock(self.line));
                         }
                     }
-                }
-                
-                else {
+                } else {
                     self.add_token(TokenType::Slash);
                 }
             }
@@ -174,24 +199,23 @@ impl Scanner {
                 self.lex_number()?;
             }
 
-            ' ' => {},
-            '\r' => {},
-            '\t' => {},
-            '\n' => {self.line += 1},
+            ' ' => {}
+            '\r' => {}
+            '\t' => {}
+            '\n' => self.line += 1,
             _ => {
                 if c.is_ascii_alphabetic() {
                     self.lex_identifier();
+                } else {
+                    return Err(ScanError::UknownCharacter((self.line, c)));
                 }
-                else {
-                    return Err(ScanError::UknownCharacter((self.line, c)))
-                }
-            },
+            }
         }
         Ok(())
     }
 
     fn lex_string(&mut self) -> Result<(), ScanError> {
-        while self.peek() != '"' && self.at_end() == false  {
+        while self.peek() != '"' && self.at_end() == false {
             if self.peek() == '\n' {
                 self.line += 1;
             }
@@ -207,7 +231,10 @@ impl Scanner {
         self.next();
 
         // Slice off the ""
-        let text = self.src.substring(self.start + 1, self.current - 1).to_string();
+        let text = self
+            .src
+            .substring(self.start + 1, self.current - 1)
+            .to_string();
         self.add_token_with_literal(TokenType::String, Literal::StrLit(text.clone()));
 
         Ok(())
@@ -227,14 +254,19 @@ impl Scanner {
             }
         }
 
-        let text = self.src.substring(self.start+1, self.current-1).to_string();
+
+        let text = self
+            .src
+            .substring(self.start, self.current);
+
+
         match text.parse::<f64>() {
             Ok(x) => {
                 self.add_token_with_literal(TokenType::Number, Literal::Number(x));
                 Ok(())
-            },
+            }
             Err(_) => {
-                return Err(ScanError::NumParseError((self.line, text)));
+                return Err(ScanError::NumParseError((self.line, text.to_string())));
             }
         }
     }
@@ -244,11 +276,14 @@ impl Scanner {
             self.next();
         }
 
-        let text = self.src.substring(self.start+1, self.current-1).to_string();
+        let text = self
+            .src
+            .substring(self.start + 1, self.current - 1)
+            .to_string();
         match KEYWORDS.deref().get(&text) {
             Some(x) => {
                 self.add_token(x.clone());
-            },
+            }
             None => {
                 self.add_token(TokenType::Identifier);
             }
@@ -279,7 +314,7 @@ impl Scanner {
             return false;
         }
 
-        if self.src.chars().nth(self.current + n).unwrap() != expect  {
+        if self.src.chars().nth(self.current + n).unwrap() != expect {
             return false;
         }
 
@@ -292,7 +327,7 @@ impl Scanner {
             return false;
         }
 
-        if self.src.chars().nth(self.current).unwrap() != expect  {
+        if self.src.chars().nth(self.current).unwrap() != expect {
             return false;
         }
 
@@ -304,17 +339,14 @@ impl Scanner {
     // we grab the text of the current lexeme, and create a token for it.
     fn add_token(&mut self, ttype: TokenType) {
         let text = self.src.substring(self.start, self.current).to_string();
-        self.tokens.push(Token::new(
-            ttype, text, Literal::Empty, self.line
-        ))
+        self.tokens
+            .push(Token::new(ttype, text, Literal::Empty, self.line))
     }
 
     // Add a procesesd token, that has a literal value to our vec.
     fn add_token_with_literal(&mut self, ttype: TokenType, lit: Literal) {
         let text = self.src.substring(self.start, self.current).to_string();
-        self.tokens.push(Token::new(
-            ttype, text, lit, self.line
-        ))
+        self.tokens.push(Token::new(ttype, text, lit, self.line))
     }
 
     // Consume the next character in the source file and return it.

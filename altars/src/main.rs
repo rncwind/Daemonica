@@ -1,10 +1,11 @@
-mod tokentype;
-mod token;
-mod literals;
-mod scanner;
 mod ast;
-mod interpreter;
 mod astprinter;
+mod interpreter;
+mod literals;
+mod parser;
+mod scanner;
+mod token;
+mod tokentype;
 
 use std::env;
 use std::fs;
@@ -12,33 +13,24 @@ use std::io;
 
 use ast::Expr;
 use literals::Literal;
-use tokentype::TokenType;
+use parser::Parser;
+use scanner::Scanner;
 use token::Token;
+use tokentype::TokenType;
 
 use crate::astprinter::AstPrinter;
 
 fn main() {
-    let expression: Expr = Expr::Binary(
-        Box::new(Expr::Unary(
-            Token::new(TokenType::Minus, "-".to_string(), Literal::Empty, 1),
-            Box::new(Expr::Literal(Literal::Number(123.0))),
-        )),
-        Token::new(TokenType::Star, "*".to_string(), Literal::Empty, 1),
-        Box::new(Expr::Grouping(
-            Box::new(Expr::Literal(Literal::Number(45.67)))
-        )),
-    );
-    let mut p = AstPrinter{};
-    println!("{}", p.print(expression));
+    repl();
 }
 
 fn read_file(path: String) -> Result<String, io::Error> {
     fs::read_to_string(path)
 }
 
-fn run_file(path: String) -> Result<(), ()> {
+fn run_file(path: String) {
     let ritual = read_file(path);
-    Ok(())
+    run(ritual.unwrap());
 }
 
 fn repl() {
@@ -56,5 +48,11 @@ fn repl() {
 }
 
 fn run(src: String) {
-    todo!("Scan and tokenise");
+    let mut s: Scanner = Scanner::new(src);
+    let tokens = s.scan_tokens();
+    let mut p: Parser = Parser::new(tokens);
+    let result = p.parse();
+    let mut a: AstPrinter = AstPrinter{};
+    a.print(result);
+    //println!("{:?}", result);
 }

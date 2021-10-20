@@ -8,10 +8,10 @@ impl<T> Visitor<T> for Interpreter {
         match &*x {
             Stmt::Block(stmts) => {
                 todo!("Stmt::Block")
-            },
+            }
             Stmt::Class(name, methods) => {
                 todo!("Stmt::Class");
-            },
+            }
             Stmt::Expression(expr) => todo!("Stmt::Expression"),
             Stmt::Function(name, params, body) => todo!(),
             Stmt::If(cond, thenb, elseb) => todo!(),

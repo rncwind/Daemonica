@@ -1,5 +1,5 @@
-use crate::tokentype::TokenType;
 use crate::literals::Literal;
+use crate::tokentype::TokenType;
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -11,8 +11,11 @@ pub struct Token {
 
 impl Token {
     pub fn new(ttype: TokenType, lexeme: String, literal: Literal, line: usize) -> Token {
-        Token{
-            ttype, lexeme, literal, line
+        Token {
+            ttype,
+            lexeme,
+            literal,
+            line,
         }
     }
 }
