@@ -18,6 +18,9 @@ use scanner::Scanner;
 use token::Token;
 use tokentype::TokenType;
 
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+
 use crate::astprinter::AstPrinter;
 
 fn main() {
@@ -34,13 +37,15 @@ fn run_file(path: String) {
 }
 
 fn repl() {
-    let mut input = String::new();
+    let mut rl = Editor::<()>::new();
     loop {
-        match io::stdin().read_line(&mut input) {
-            Ok(n) => {
-                run(input.clone());
+        let readline = rl.readline("Daemonica> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                run(line.to_string().clone());
             }
-            Err(_x) => {
+            Err(_) => {
                 break;
             }
         }
@@ -52,7 +57,7 @@ fn run(src: String) {
     let tokens = s.scan_tokens();
     let mut p: Parser = Parser::new(tokens);
     let result = p.parse();
-    let mut a: AstPrinter = AstPrinter{};
-    a.print(result);
-    //println!("{:?}", result);
+    let mut a: AstPrinter = AstPrinter {};
+    a.print(result.clone());
+    println!("{:?}", result.clone());
 }

@@ -1,4 +1,9 @@
-use crate::{ast::{Expr, Stmt, Visitor}, literals::Literal, token::Token, tokentype::TokenType};
+use crate::{
+    ast::{Expr, Stmt, Visitor},
+    literals::Literal,
+    token::Token,
+    tokentype::TokenType,
+};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -50,10 +55,7 @@ impl Parser {
     /// parse + and - expressions
     fn term(&mut self) -> Expr {
         let mut expr = self.factor();
-        while self.expect(vec![
-            TokenType::Plus,
-            TokenType::Minus,
-        ]) {
+        while self.expect(vec![TokenType::Plus, TokenType::Minus]) {
             let op = self.previous();
             let right = self.factor();
             expr = Expr::Binary(Box::new(expr), op, Box::new(right));
@@ -64,10 +66,7 @@ impl Parser {
     /// Parse * and / expressions
     fn factor(&mut self) -> Expr {
         let mut expr = self.unary();
-        while self.expect(vec![
-            TokenType::Star,
-            TokenType::Slash,
-        ]) {
+        while self.expect(vec![TokenType::Star, TokenType::Slash]) {
             let op = self.previous();
             let right = self.unary();
             expr = Expr::Binary(Box::new(expr), op, Box::new(right));
@@ -75,13 +74,12 @@ impl Parser {
         expr
     }
 
+    /// Unary expressions like ! which negates boolean or - which negates a number
+    /// are parsed here
     fn unary(&mut self) -> Expr {
         // Check to see if it's a ! or -. If it is ten it's a unary expression
         // so grab the token and recurse un unary to parse te operand.
-        if self.expect(vec![
-            TokenType::Bang,
-            TokenType::Minus
-        ]) {
+        if self.expect(vec![TokenType::Bang, TokenType::Minus]) {
             let op = self.previous();
             let right = self.unary();
             Expr::Unary(op, Box::new(right))
@@ -122,8 +120,12 @@ impl Parser {
         if self.expect(vec![ttype.clone()]) {
             return self.next();
         } else {
-            panic!("Was expecting token {:?}, but found {:?} at line {}",
-            ttype, self.peek().ttype, self.current);
+            panic!(
+                "Was expecting token {:?}, but found {:?} at line {}",
+                ttype,
+                self.peek().ttype,
+                self.current
+            );
         }
     }
 
@@ -179,5 +181,35 @@ impl<T> Visitor<T> for Parser {
 
     fn visit_expr(&mut self, x: &Expr) -> T {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{token::Token, Expr, Literal, Parser, Scanner, TokenType};
+    #[test]
+    fn number_literal() {
+        let testStr: String = "5;".to_string();
+        let mut s: Scanner = Scanner::new(testStr);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let result = p.parse();
+        let expected = Expr::Literal(Literal::Number(5.0));
+        assert!(expected == result);
+    }
+
+    #[test]
+    fn addition() {
+        let testStr: String = "5 + 2;".to_string();
+        let mut s: Scanner = Scanner::new(testStr);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let result = p.parse();
+        let expected = Expr::Binary(
+            Box::new(Expr::Literal(Literal::Number(5.0))),
+            Token::new(TokenType::Plus, "+".to_string(), Literal::Empty, 1),
+            Box::new(Expr::Literal(Literal::Number(2.0))),
+        );
+        assert!(expected == result);
     }
 }

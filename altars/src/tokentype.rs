@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // 1char tokens
@@ -44,6 +46,13 @@ pub enum TokenType {
     True,
     Var,
     While,
+    Call,
 
     EOF,
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }

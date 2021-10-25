@@ -6,7 +6,22 @@ use crate::literals::Literal;
 pub struct AstPrinter;
 impl Visitor<String> for AstPrinter {
     fn visit_stmt(&mut self, s: &Stmt) -> String {
-        todo!()
+        match &*s {
+            Stmt::Block(stmts) => {
+                let mut rv = "".to_string();
+                for stmt in stmts {
+                    rv = format!("{} {}", rv, self.visit_stmt(stmt));
+                }
+                rv
+            }
+            Stmt::Class(_, _) => todo!(),
+            Stmt::Expression(_) => todo!(),
+            Stmt::Function(_, _, _) => todo!(),
+            Stmt::If(_, _, _) => todo!(),
+            Stmt::Return(_, _) => todo!(),
+            Stmt::Var(_, _) => todo!(),
+            Stmt::While(_, _) => todo!(),
+        }
     }
 
     fn visit_expr(&mut self, e: &Expr) -> String {
@@ -14,8 +29,6 @@ impl Visitor<String> for AstPrinter {
         match &*e {
             Expr::Assign(_, _) => todo!(),
             Expr::Binary(left, op, right) => {
-                //return parenthesize(op.lexeme, vec![*left, *right]);
-                //let exprs = vec![*left.clone(), *right.clone()];
                 let l = *left.clone();
                 let r = *right.clone();
                 let exprs = vec![l, r];
@@ -24,9 +37,7 @@ impl Visitor<String> for AstPrinter {
             }
             Expr::Call(_, _, _) => todo!(),
             Expr::Get(_, _) => todo!(),
-            Expr::Grouping(expr) => {
-                parenthesize("group".to_string(), vec![*expr.clone()])
-            },
+            Expr::Grouping(expr) => parenthesize("group".to_string(), vec![*expr.clone()]),
             Expr::Literal(expr) => {
                 if *expr == Literal::Empty {
                     return "Empty".to_string();

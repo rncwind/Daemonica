@@ -38,9 +38,10 @@ lazy_static! {
         m.insert("dum".to_string(), TokenType::While);
         m.insert("nihil".to_string(), TokenType::None);
         m.insert("anima".to_string(), TokenType::Self_);
-        m.insert("cero".to_string(), TokenType::Var);
+        m.insert("ligamen".to_string(), TokenType::Var);
         m.insert("daemonium".to_string(), TokenType::Class);
         m.insert("cognatio".to_string(), TokenType::Super);
+        m.insert("invocabo".to_string(), TokenType::Call);
         return m;
     };
 }
@@ -254,11 +255,7 @@ impl Scanner {
             }
         }
 
-
-        let text = self
-            .src
-            .substring(self.start, self.current);
-
+        let text = self.src.substring(self.start, self.current);
 
         match text.parse::<f64>() {
             Ok(x) => {
@@ -276,10 +273,7 @@ impl Scanner {
             self.next();
         }
 
-        let text = self
-            .src
-            .substring(self.start + 1, self.current - 1)
-            .to_string();
+        let text = self.src.substring(self.start, self.current).to_string();
         match KEYWORDS.deref().get(&text) {
             Some(x) => {
                 self.add_token(x.clone());
@@ -358,5 +352,73 @@ impl Scanner {
 
     fn at_end(&self) -> bool {
         self.current >= self.src.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Literal, Scanner, Token, TokenType};
+    #[test]
+    fn number_literal() {
+        let testStr: String = "5;".to_string();
+        let mut s: Scanner = Scanner::new(testStr);
+        let tokens = s.scan_tokens();
+        let five = Token::new(TokenType::Number, "5".to_string(), Literal::Number(5.0), 1);
+        let semicolon = Token::new(TokenType::Semicolon, ";".to_string(), Literal::Empty, 1);
+        let eof = Token::new(TokenType::EOF, "".to_string(), Literal::Empty, 1);
+        let expected = vec![five, semicolon, eof];
+        assert!(expected == tokens);
+    }
+
+    #[test]
+    fn parenthesized_exprs() {
+        let testStr: String = "5 + (3 * (8));".to_string();
+        let expected = vec![
+            Token::new(TokenType::Number, "5".to_string(), Literal::Number(5.0), 1),
+            Token::new(TokenType::Plus, "+".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::LeftParen, "(".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::Number, "3".to_string(), Literal::Number(3.0), 1),
+            Token::new(TokenType::Star, "*".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::LeftParen, "(".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::Number, "8".to_string(), Literal::Number(8.0), 1),
+            Token::new(TokenType::RightParen, ")".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::RightParen, ")".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::Semicolon, ";".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Empty, 1),
+        ];
+        let mut s: Scanner = Scanner::new(testStr);
+        let tokens = s.scan_tokens();
+        assert!(expected == tokens);
+    }
+
+    #[test]
+    fn and_test() {
+        let testStr: String = "et;".to_string();
+        let expected = vec![
+            Token::new(TokenType::And, "et".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::Semicolon, ";".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Empty, 1),
+        ];
+        let mut s: Scanner = Scanner::new(testStr);
+        let tokens = s.scan_tokens();
+        assert!(expected == tokens);
+    }
+
+    #[test]
+    fn maximal_munch() {
+        let velocity: String = "velocity;".to_string();
+        let expected = vec![
+            Token::new(
+                TokenType::Identifier,
+                "velocity".to_string(),
+                Literal::Empty,
+                1,
+            ),
+            Token::new(TokenType::Semicolon, ";".to_string(), Literal::Empty, 1),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Empty, 1),
+        ];
+        let mut s: Scanner = Scanner::new(velocity);
+        let tokens = s.scan_tokens();
+        assert!(expected == tokens);
     }
 }

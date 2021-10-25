@@ -1,7 +1,10 @@
+use std::fmt;
+use std::fmt::Display;
+
 use crate::literals::Literal;
 use crate::tokentype::TokenType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub ttype: TokenType,
     pub lexeme: String,
@@ -17,5 +20,15 @@ impl Token {
             literal,
             line,
         }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "TOKEN( Type: {}, Lexeme: {}, Literal: {}, line: {} )",
+            self.ttype, self.lexeme, self.literal, self.line
+        )
     }
 }
