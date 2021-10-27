@@ -1,3 +1,4 @@
+use crate::ast::ASTNode;
 use crate::ast::Expr;
 use crate::ast::Stmt;
 use crate::ast::Value;
@@ -9,13 +10,42 @@ use crate::tokentype::TokenType;
 pub struct Interpreter;
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
+    pub fn interpret(&mut self, nodes: Vec<ASTNode>) -> Result<Vec<Value>, String> {
+        let mut results: Vec<Value> = Vec::new();
+        for node in nodes {
+            match node {
+                ASTNode::StmtNode(x) => {
+                    match self.interpret_stmt(x) {
+                        Ok(y) => {
+                            results.push(y);
+                        },
+                        Err(y) => {
+                            return Err(y);
+                        },
+                    }
+                }
+                ASTNode::ExprNode(x) => {
+                    match self.interpret_expr(x) {
+                        Ok(y) => {
+                            results.push(y);
+                        }
+                        Err(y) => {
+                            return Err(y);
+                        }
+                    }
+                }
+            }
+        }
+        return Ok(results);
+    }
+
     pub fn interpret_expr(&mut self, expr: Expr) -> Result<Value, String> {
         match expr {
             Expr::Assign(name, value) => {
-                self.interpret_assignment(name, *value)
+                return self.interpret_assignment(name, *value);
             },
             Expr::Binary(left, oper, right) => {
-                self.interpret_binary(*left, oper, *right)
+                return self.interpret_binary(*left, oper, *right);
             },
             Expr::Call(callee, paren, args) => {
                 todo!()
@@ -26,13 +56,13 @@ impl Interpreter {
             Expr::Grouping(expression) => {
                 // Destructure the expression and recursivley interpret it's
                 // subexpressions
-                self.interpret_expr(*expression)
+                return self.interpret_expr(*expression);
             },
             Expr::Literal(value) => {
-                self.interpret_literal(value)
+                return self.interpret_literal(value);
             },
             Expr::Logic(left, operator, right) => {
-                self.interpret_logical(*left, operator, *right)
+                return self.interpret_logical(*left, operator, *right);
             },
             Expr::Set(object, name, value) => {
                 todo!()
@@ -41,11 +71,26 @@ impl Interpreter {
                 todo!()
             },
             Expr::Unary(operator, right) => {
-                self.interpret_unary(operator, *right)
+                return self.interpret_unary(operator, *right);
             },
             Expr::Variable(name) => {
                 todo!()
             },
+        }
+    }
+
+    pub fn interpret_stmt(&mut self, stmt: Stmt) -> Result<Value, String> {
+        match stmt {
+            Stmt::Block(_) => todo!(),
+            Stmt::Class(_, _) => todo!(),
+            Stmt::Expression(expr) => {
+                self.interpret_expr(expr)
+            },
+            Stmt::Function(_, _, _) => todo!(),
+            Stmt::If(_, _, _) => todo!(),
+            Stmt::Return(_, _) => todo!(),
+            Stmt::Var(_, _) => todo!(),
+            Stmt::While(_, _) => todo!(),
         }
     }
 
@@ -226,6 +271,7 @@ impl Interpreter {
         }
         return lv == rv;
     }
+
 }
 
 #[cfg(test)]
@@ -244,7 +290,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(15.0);
         assert!(result == expected);
     }
@@ -257,7 +303,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(5.0);
         assert!(result == expected);
     }
@@ -270,7 +316,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(15.0);
         assert!(result == expected);
     }
@@ -283,20 +329,23 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(10.0);
         assert!(result == expected);
     }
 
     #[test]
     fn string_concat() {
-        let test_str: String = "\"Hello, \" + \"World!\"".to_string();
+        let test_str: String = "\"Hello, \" + \"World!\";".to_string();
         let mut s: Scanner = Scanner::new(test_str);
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed);
+        println!("{:?}", result);
+        let result = result.unwrap().get(0).unwrap().clone();
+
         let expected = Value::String("Hello, World!".to_string());
         assert!(result == expected);
     }
@@ -309,7 +358,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -322,7 +371,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -335,7 +384,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -348,7 +397,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -361,7 +410,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(false);
         assert!(result == expected);
     }
@@ -374,7 +423,7 @@ mod tests {
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
         let mut i: Interpreter = Interpreter;
-        let result = i.interpret_expr(parsed).unwrap();
+        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
     }

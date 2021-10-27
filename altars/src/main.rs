@@ -49,9 +49,9 @@ fn run(src: String) {
     let mut s: Scanner = Scanner::new(src);
     let tokens = s.scan_tokens();
     let mut p: Parser = Parser::new(tokens);
-    let result = p.parse();
+    let parsed = p.parse();
     let mut i: Interpreter = Interpreter;
-    let result = i.interpret_expr(result);
+    let result = i.interpret(parsed);
     println!("{:?}", result);
     //let mut a: AstPrinter = AstPrinter {};
     //a.print(result.clone());
