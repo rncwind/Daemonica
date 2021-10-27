@@ -6,16 +6,16 @@ use crate::literals::Literal;
 use crate::token::Token;
 use crate::tokentype::TokenType;
 
-struct Interpreter;
+pub struct Interpreter;
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
-    fn interpret_expr(&mut self, expr: Expr) -> Result<Value, String> {
+    pub fn interpret_expr(&mut self, expr: Expr) -> Result<Value, String> {
         match expr {
             Expr::Assign(name, value) => {
                 self.interpret_assignment(name, *value)
             },
             Expr::Binary(left, oper, right) => {
-                todo!()
+                self.interpret_binary(*left, oper, *right)
             },
             Expr::Call(callee, paren, args) => {
                 todo!()
@@ -54,8 +54,8 @@ impl Interpreter {
     }
 
     fn interpret_binary(&mut self, left: Expr, oper: Token, right: Expr) -> Result<Value, String> {
-        let left = self.interpret_expr(left).unwrap();
-        let right = self.interpret_expr(right).unwrap();
+        let left = self.interpret_expr(left)?;
+        let right = self.interpret_expr(right)?;
 
         let l = match left {
             Value::Number(x) => x,
@@ -95,10 +95,36 @@ impl Interpreter {
                 return Ok(Value::Number(l - r));
             },
             TokenType::Slash => {
-                return Ok(Value::Number(l / r));
-            }
+                if l == 0.0 || r == 0.0 {
+                    let emsg = format!("Attempted to divide by zero!. Expression was {} / {}", l, r);
+                    return Err(emsg);
+                } else {
+                    return Ok(Value::Number(l / r));
+                }
+            },
             TokenType::Star => {
                 return Ok(Value::Number(l * r));
+            },
+            TokenType::Plus => {
+                return Ok(Value::Number(l + r));
+            },
+            TokenType::EqualEqual => {
+                return Ok(Value::Bool(self.is_equal(left, right)));
+            },
+            TokenType::BangEqual => {
+                return Ok(Value::Bool(!self.is_equal(left, right)));
+            },
+            TokenType::Greater => {
+                return Ok(Value::Bool(l > r));
+            },
+            TokenType::GreaterEqual => {
+                return Ok(Value::Bool(l >= r));
+            },
+            TokenType::Less => {
+                return Ok(Value::Bool(l < r));
+            },
+            TokenType::LessEqual => {
+                return Ok(Value::Bool(l <= r));
             }
             _ => {
                 let msg = format!("Attempted to evaluate an invalid binary expression. {:?} {:?} {:?}", left, oper, right);
@@ -137,63 +163,14 @@ impl Interpreter {
     }
 
     fn interpret_logical(&mut self, left: Expr, operator: Token, right: Expr) -> Result<Value, String> {
-        let left = self.interpret_expr(left).unwrap();
-        let right = self.interpret_expr(right).unwrap();
-
-        // Handle equality first, since we destructure after this.
-        match operator.ttype {
-            TokenType::Equal => {
-                return Ok(Value::Bool(self.is_equal(left, right)));
-            },
-            TokenType::BangEqual => {
-                return Ok(Value::Bool(!self.is_equal(left, right)));
-            },
-            _ => {}
-        }
-
-        let lv = match left {
-            Value::Number(x) => {
-                x
-            },
-            _ => {
-                let emsg = format!("Attempted to perform logical operation {:?} on {:?} which is invalid", operator.lexeme, left);
-                return Err(emsg);
-            }
-        };
-
-        let rv = match right {
-            Value::Number(x) => {
-                x
-            },
-            _ => {
-                let emsg = format!("Attempted to perform logical operation {:?} on {:?} which is invalid", operator.lexeme, right);
-                return Err(emsg);
-            }
-        };
-
-        match operator.ttype {
-            TokenType::Greater => {
-                return Ok(Value::Bool(lv > rv));
-            },
-            TokenType::GreaterEqual => {
-                return Ok(Value::Bool(lv >= rv));
-            },
-            TokenType::Less => {
-                return Ok(Value::Bool(lv < rv));
-            },
-            TokenType::LessEqual => {
-                return Ok(Value::Bool(lv <= rv));
-            },
-            _ => {
-                let emsg = format!("Attempted to perform a logical operation on something not >, >=, < or <=. Token was {:?}", operator.ttype);
-                return Err(emsg);
-            }
-        }
+        let left = self.interpret_expr(left)?;
+        let right = self.interpret_expr(right)?;
+        todo!()
     }
 
     fn interpret_unary(&mut self, operator: Token, right: Expr) -> Result<Value, String> {
         // Evaluate the operand that we are applying the operator too.
-        let evaledright = self.interpret_expr(right.clone()).unwrap();
+        let evaledright = self.interpret_expr(right.clone())?;
 
         // Match the token type of the operator so we know what kind of maths
         // we need to apply.
@@ -207,7 +184,8 @@ impl Interpreter {
                         // If we somehow got to the point where a unary oper
                         // is being applied to something other than a number we should
                         // probably let the user know and be scared.
-                        let emsg = format!("Attempted to interpret a unary operation with the invalid operator {:?}", operator);
+                        //let emsg = format!("Attempted to interpret a unary operation with the invalid operator {:?}", operator);
+                        let emsg = format!("Attempted to apply unary operator '{}' to expression {}, which is invalid.", operator.lexeme, right);
                         return Err(emsg);
                     }
                 }
@@ -247,5 +225,157 @@ impl Interpreter {
             return false;
         }
         return lv == rv;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::Parser;
+    use crate::token::*;
+    use crate::scanner::*;
+    use super::Interpreter;
+    use super::Value;
+
+    #[test]
+    fn addition_test() {
+        let test_str: String = "5 + 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Number(15.0);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn subtraction_test() {
+        let test_str: String = "10 - 5;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Number(5.0);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn multiplication_test() {
+        let test_str: String = "3 * 5;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Number(15.0);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn division_test() {
+        let test_str: String = "100 / 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Number(10.0);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn string_concat() {
+        let test_str: String = "\"Hello, \" + \"World!\"".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::String("Hello, World!".to_string());
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn equality() {
+        let test_str: String = "10 == 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(true);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn inequality() {
+        let test_str: String = "100 != 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(true);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn gt() {
+        let test_str: String = "100 > 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(true);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn geq() {
+        let test_str: String = "10 >= 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(true);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn lt() {
+        let test_str: String = "100 < 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(false);
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn leq() {
+        let test_str: String = "10 <= 10;".to_string();
+        let mut s: Scanner = Scanner::new(test_str);
+        let tokens = s.scan_tokens();
+        let mut p: Parser = Parser::new(tokens);
+        let parsed = p.parse();
+        let mut i: Interpreter = Interpreter;
+        let result = i.interpret_expr(parsed).unwrap();
+        let expected = Value::Bool(true);
+        assert!(result == expected);
     }
 }

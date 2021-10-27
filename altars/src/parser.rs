@@ -186,7 +186,10 @@ impl<T> Visitor<T> for Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{token::Token, Expr, Literal, Parser, Scanner, TokenType};
+    use crate::token::*;
+    use crate::ast::*;
+    use crate::scanner::*;
+    use crate::parser::*;
     #[test]
     fn number_literal() {
         let testStr: String = "5;".to_string();

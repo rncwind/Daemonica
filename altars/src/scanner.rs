@@ -357,7 +357,8 @@ impl Scanner {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Literal, Scanner, Token, TokenType};
+    use crate::token::*;
+    use crate::scanner::*;
     #[test]
     fn number_literal() {
         let testStr: String = "5;".to_string();

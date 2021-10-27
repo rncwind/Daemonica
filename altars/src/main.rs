@@ -7,21 +7,14 @@ mod scanner;
 mod token;
 mod tokentype;
 
-use std::env;
 use std::fs;
 use std::io;
 
-use ast::Expr;
-use literals::Literal;
+use interpreter::Interpreter;
 use parser::Parser;
 use scanner::Scanner;
-use token::Token;
-use tokentype::TokenType;
 
-use rustyline::error::ReadlineError;
 use rustyline::Editor;
-
-use crate::astprinter::AstPrinter;
 
 fn main() {
     repl();
@@ -57,7 +50,10 @@ fn run(src: String) {
     let tokens = s.scan_tokens();
     let mut p: Parser = Parser::new(tokens);
     let result = p.parse();
-    let mut a: AstPrinter = AstPrinter {};
-    a.print(result.clone());
-    println!("{:?}", result.clone());
+    let mut i: Interpreter = Interpreter;
+    let result = i.interpret_expr(result);
+    println!("{:?}", result);
+    //let mut a: AstPrinter = AstPrinter {};
+    //a.print(result.clone());
+    //println!("{:?}", result.clone());
 }

@@ -104,7 +104,9 @@ impl Display for Expr {
             Expr::Call(_, _, _) => todo!(),
             Expr::Get(_, _) => todo!(),
             Expr::Grouping(_) => todo!(),
-            Expr::Literal(_) => todo!(),
+            Expr::Literal(x) => {
+                write!(f, "\"{}\"", x)
+            },
             Expr::Logic(_, _, _) => todo!(),
             Expr::Set(_, _, _) => todo!(),
             Expr::This(_) => todo!(),
