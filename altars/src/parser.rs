@@ -1,4 +1,9 @@
-use crate::{ast::{ASTNode, Expr, Stmt, Visitor}, literals::Literal, token::Token, tokentype::TokenType};
+use crate::{
+    ast::{ASTNode, Expr, Stmt, Visitor},
+    literals::Literal,
+    token::Token,
+    tokentype::TokenType,
+};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -10,19 +15,123 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    //pub fn parse(&mut self) -> Expr {
-        //self.expression()
-    //}
     pub fn parse(&mut self) -> Vec<ASTNode> {
         let mut stmts: Vec<ASTNode> = Vec::new();
         while self.at_end() == false {
-            stmts.push(ASTNode::StmtNode(self.statement()));
+            //stmts.push(ASTNode::StmtNode(self.statement()));
+            stmts.push(ASTNode::StmtNode(self.declaration()));
         }
         return stmts;
     }
 
+    fn declaration(&mut self) -> Stmt {
+        if self.maybe_advance(vec![TokenType::Var]) {
+            return self.var_decl();
+        }
+        return self.statement();
+    }
+
     fn statement(&mut self) -> Stmt {
+        if self.maybe_advance(vec![TokenType::Print]) {
+            return self.parse_print();
+        }
+        if self.maybe_advance(vec![TokenType::LeftBrace]) {
+            return Stmt::Block(self.block());
+        }
+        if self.maybe_advance(vec![TokenType::While]) {
+            return self.while_stmt();
+        }
+        if self.maybe_advance(vec![TokenType::If]) {
+            return self.if_stmt();
+        }
+        if self.maybe_advance(vec![TokenType::For]) {
+            return self.parse_for()
+        }
         return self.expression_stmt();
+    }
+
+    fn parse_print(&mut self) -> Stmt {
+        let val = self.expression();
+        self.consume(TokenType::Semicolon);
+        return Stmt::Print(val);
+    }
+
+    fn parse_for(&mut self) -> Stmt {
+        self.consume(TokenType::LeftParen);
+        // Parse out the various parts of our for statement, for desugaring
+        // in a second
+
+        // Parse our initializer
+        let mut initializer: Option<Stmt> = None;
+        if self.maybe_advance(vec![TokenType::Semicolon]) {
+            initializer = None;
+        } else if self.maybe_advance(vec![TokenType::Var]) {
+            initializer = Some(self.var_decl());
+        } else {
+            initializer = Some(self.expression_stmt());
+        }
+
+        // Parse the condition, if it exists.
+        let mut cond: Option<Expr> = None;
+        if !self.check(TokenType::Semicolon) {
+            cond = Some(self.expression());
+        }
+        self.consume(TokenType::Semicolon);
+
+        let mut increment: Option<Expr> = None;
+        if !self.check(TokenType::RightParen) {
+            increment = Some(self.expression());
+        }
+        self.consume(TokenType::RightParen);
+
+        let mut body = self.statement();
+
+        match increment {
+            Some(inc) => {
+                body = Stmt::Block(vec![body, Stmt::Expression(inc)]);
+                match cond {
+                    Some(_) => {}
+                    None => {
+                        cond = Some(Expr::Literal(Literal::Bool(true)));
+                    }
+                }
+                body = Stmt::While(cond.unwrap(), Box::new(body));
+
+                match initializer {
+                    Some(init) => {
+                        body = Stmt::Block(vec![init, body]);
+                    }
+                    None => {}
+                }
+            }
+            _ => {}
+        }
+        body
+    }
+
+    fn var_decl(&mut self) -> Stmt {
+        // Grab the variable name first of all, so we can bind it
+        let name = self.consume(TokenType::Identifier);
+
+        // Check if we have an initializer statement or not. If we do we need
+        // to parse that out as an expression.
+        // otherwise we just bind the name to an empty value
+        if self.maybe_advance(vec![TokenType::Equal]) {
+            let initializer = Some(self.expression());
+            self.consume(TokenType::Semicolon);
+            return Stmt::Var(name, initializer);
+        } else {
+            self.consume(TokenType::Semicolon);
+            return Stmt::Var(name, None);
+        }
+    }
+
+    fn while_stmt(&mut self) -> Stmt {
+        self.consume(TokenType::LeftParen);
+        let condition = self.expression();
+        self.consume(TokenType::RightParen);
+        let body = self.statement();
+        return Stmt::While(condition, Box::new(body));
     }
 
     fn expression_stmt(&mut self) -> Stmt {
@@ -31,15 +140,82 @@ impl Parser {
         Stmt::Expression(expr)
     }
 
+    fn block(&mut self) -> Vec<Stmt> {
+        let mut stmts = Vec::new();
+        while !self.check(TokenType::RightBrace) && !self.at_end() {
+            stmts.push(self.declaration());
+        }
+        self.consume(TokenType::RightBrace);
+        stmts
+    }
+
+    fn if_stmt(&mut self) -> Stmt {
+        self.consume(TokenType::LeftParen);
+        let condition = self.expression();
+        self.consume(TokenType::RightParen);
+
+        let thenb = self.statement();
+        let mut elseb = None;
+        // Avoid the dangling else by checking for it eagerly.
+        if self.maybe_advance(vec![TokenType::Else]) {
+            elseb = Some(self.statement());
+        }
+        return Stmt::If(condition, Box::new(thenb), Box::new(elseb));
+    }
+
     fn expression(&mut self) -> Expr {
-        self.equality()
+        //self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Expr {
+        let expr = self.parse_or();
+
+        if self.maybe_advance(vec![TokenType::Equal]) {
+            let equals = self.previous();
+            let value = self.assignment();
+
+            match expr {
+                Expr::Variable(tok) => {
+                    return Expr::Assign(tok, Box::new(value));
+                }
+                _ => {
+                    let emsg = format!("{} is an invalid assignment target", equals);
+                    panic!("{}", emsg);
+                }
+            }
+        }
+        return expr;
+    }
+
+    /// parse logical ors
+    fn parse_or(&mut self) -> Expr {
+        let mut expr = self.parse_and();
+
+        while self.maybe_advance(vec![TokenType::Or]) {
+            let op = self.previous();
+            let right = self.parse_and();
+            expr = Expr::Logic(Box::new(expr), op, Box::new(right));
+        }
+        expr
+    }
+
+    fn parse_and(&mut self) -> Expr {
+        let mut expr = self.equality();
+
+        while self.maybe_advance(vec![TokenType::And]) {
+            let op = self.previous();
+            let right = self.equality();
+            expr = Expr::Logic(Box::new(expr), op, Box::new(right));
+        }
+        expr
     }
 
     /// Parse equality expressions (== and !=)
     fn equality(&mut self) -> Expr {
         let mut expr = self.comparison();
 
-        while self.expect(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
+        while self.maybe_advance(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
             let op = self.previous();
             let right = self.comparison();
             expr = Expr::Binary(Box::new(expr), op, Box::new(right));
@@ -51,7 +227,7 @@ impl Parser {
     fn comparison(&mut self) -> Expr {
         let mut expr = self.term();
 
-        while self.expect(vec![
+        while self.maybe_advance(vec![
             TokenType::Greater,
             TokenType::GreaterEqual,
             TokenType::Less,
@@ -67,7 +243,7 @@ impl Parser {
     /// parse + and - expressions
     fn term(&mut self) -> Expr {
         let mut expr = self.factor();
-        while self.expect(vec![TokenType::Plus, TokenType::Minus]) {
+        while self.maybe_advance(vec![TokenType::Plus, TokenType::Minus]) {
             let op = self.previous();
             let right = self.factor();
             expr = Expr::Binary(Box::new(expr), op, Box::new(right));
@@ -78,7 +254,7 @@ impl Parser {
     /// Parse * and / expressions
     fn factor(&mut self) -> Expr {
         let mut expr = self.unary();
-        while self.expect(vec![TokenType::Star, TokenType::Slash]) {
+        while self.maybe_advance(vec![TokenType::Star, TokenType::Slash]) {
             let op = self.previous();
             let right = self.unary();
             expr = Expr::Binary(Box::new(expr), op, Box::new(right));
@@ -91,7 +267,7 @@ impl Parser {
     fn unary(&mut self) -> Expr {
         // Check to see if it's a ! or -. If it is ten it's a unary expression
         // so grab the token and recurse un unary to parse te operand.
-        if self.expect(vec![TokenType::Bang, TokenType::Minus]) {
+        if self.maybe_advance(vec![TokenType::Bang, TokenType::Minus]) {
             let op = self.previous();
             let right = self.unary();
             Expr::Unary(op, Box::new(right))
@@ -102,48 +278,58 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Expr {
-        if self.expect(vec![TokenType::False]) {
+        if self.maybe_advance(vec![TokenType::False]) {
             return Expr::Literal(Literal::Bool(false));
         }
-        if self.expect(vec![TokenType::True]) {
+        if self.maybe_advance(vec![TokenType::True]) {
             return Expr::Literal(Literal::Bool(true));
         }
-        if self.expect(vec![TokenType::None]) {
+        if self.maybe_advance(vec![TokenType::None]) {
             return Expr::Literal(Literal::Empty);
         }
-        if self.expect(vec![TokenType::Number]) {
-            return Expr::Literal(self.previous().literal);
-        }
-        if self.expect(vec![TokenType::String]) {
+
+        if self.maybe_advance(vec![TokenType::Number]) {
             return Expr::Literal(self.previous().literal);
         }
 
-        if self.expect(vec![TokenType::LeftParen]) {
+        if self.maybe_advance(vec![TokenType::String]) {
+            return Expr::Literal(self.previous().literal);
+        }
+
+        if self.maybe_advance(vec![TokenType::Identifier]) {
+            return Expr::Variable(self.previous());
+        }
+
+        if self.maybe_advance(vec![TokenType::LeftParen]) {
             let expr = self.expression();
             self.consume(TokenType::RightParen);
             return Expr::Grouping(Box::new(expr));
         }
-        panic!("Somehow bottomed out of Parser::primary")
+
+        panic!("Bottomed out of Parser::primary with {}", self.peek());
     }
 
     // Helper functions that abstract out common logic.
 
+    /// Consume the next token, if it matches the provided token variant.
     fn consume(&mut self, ttype: TokenType) -> Token {
-        if self.expect(vec![ttype.clone()]) {
+        //if self.expect(vec![ttype.clone()]) {
+        if self.check(ttype.clone()) {
             return self.next();
         } else {
             panic!(
-                "Was expecting token {:?}, but found {:?} at line {}",
+                "Was expecting token {:?}, but found {:?} at token {} ({:?})",
                 ttype,
                 self.peek().ttype,
-                self.current
+                self.current,
+                self.peek()
             );
         }
     }
 
     /// Given a list of valid tokentypes, see if the next token in the stream is
     /// in that list, and thus valid
-    fn expect(&mut self, types: Vec<TokenType>) -> bool {
+    fn maybe_advance(&mut self, types: Vec<TokenType>) -> bool {
         for ttype in types {
             if self.check(ttype) {
                 self.next();
@@ -153,13 +339,12 @@ impl Parser {
         false
     }
 
-    /// Helper for expect. Produce true if the tokentype is valid, else false
-    fn check(&self, ttype: TokenType) -> bool {
+    /// Checks if the given token type is the next token type. Does NOT consume.
+    fn check(&mut self, ttype: TokenType) -> bool {
         if self.at_end() {
-            false
-        } else {
-            return self.peek().ttype == ttype;
+            return false;
         }
+        return self.peek().ttype == ttype;
     }
 
     /// Advance to the next token, producing the previous token
@@ -185,53 +370,3 @@ impl Parser {
         self.tokens.get(self.current - 1).unwrap().clone()
     }
 }
-
-impl<T> Visitor<T> for Parser {
-    fn visit_stmt(&mut self, x: &Stmt) -> T {
-        todo!()
-    }
-
-    fn visit_expr(&mut self, x: &Expr) -> T {
-        todo!()
-    }
-}
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::token::*;
-//     use crate::ast::*;
-//     use crate::scanner::*;
-//     use crate::parser::*;
-//     #[test]
-//     fn number_literal() {
-//         let testStr: String = "5;".to_string();
-//         let mut s: Scanner = Scanner::new(testStr);
-//         let tokens = s.scan_tokens();
-//         let mut p: Parser = Parser::new(tokens);
-//         let result = p.parse();
-//         let expected = Expr::Literal(Literal::Number(5.0));
-//         assert!(expected == result);
-//     }
-
-//     #[test]
-//     fn addition() {
-//         let testStr: String = "5 + 2;".to_string();
-//         let mut s: Scanner = Scanner::new(testStr);
-//         let tokens = s.scan_tokens();
-//         let mut p: Parser = Parser::new(tokens);
-//         let result = p.parse().get(0).unwrap();
-//         match result {
-//             ASTNode::ExprNode(x) => {
-//                 let expected = Expr::Binary(
-//                     Box::new(Expr::Literal(Literal::Number(5.0))),
-//                     Token::new(TokenType::Plus, "+".to_string(), Literal::Empty, 1),
-//                     Box::new(Expr::Literal(Literal::Number(2.0))),
-//                 );
-//                 assert!(expected == x.clone());
-//             },
-//             ASTNode::StmtNode(_) => {
-//                 panic!("Parser addition test recieved statement!")
-//             }
-//         }
-//     }
-// }

@@ -2,40 +2,51 @@ use crate::ast::ASTNode;
 use crate::ast::Expr;
 use crate::ast::Stmt;
 use crate::ast::Value;
-use crate::ast::Visitor;
+use crate::environment::Environment;
 use crate::literals::Literal;
 use crate::token::Token;
 use crate::tokentype::TokenType;
 
-pub struct Interpreter;
+#[derive(Debug)]
+pub struct Interpreter {
+    environment: Environment,
+}
+
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {
+            environment: Environment::new(),
+        }
+    }
+
     pub fn interpret(&mut self, nodes: Vec<ASTNode>) -> Result<Vec<Value>, String> {
         let mut results: Vec<Value> = Vec::new();
         for node in nodes {
             match node {
-                ASTNode::StmtNode(x) => {
-                    match self.interpret_stmt(x) {
-                        Ok(y) => {
-                            results.push(y);
-                        },
-                        Err(y) => {
-                            return Err(y);
-                        },
+                ASTNode::StmtNode(x) => match self.interpret_stmt(x) {
+                    Ok(y) => {
+                        results.push(y);
                     }
-                }
-                ASTNode::ExprNode(x) => {
-                    match self.interpret_expr(x) {
-                        Ok(y) => {
-                            results.push(y);
-                        }
-                        Err(y) => {
-                            return Err(y);
-                        }
+                    Err(y) => {
+                        println!("Encountered an error {}", y);
+                        println!("Environment at this state was {:#?}", self.environment);
+                        return Err(y);
                     }
-                }
+                },
+                ASTNode::ExprNode(x) => match self.interpret_expr(x) {
+                    Ok(y) => {
+                        results.push(y);
+                    }
+                    Err(y) => {
+                        println!("Encountered an error {}", y);
+                        println!("Environment at this state was {:#?}", self.environment);
+                        return Err(y);
+                    }
+                },
             }
         }
+
         return Ok(results);
     }
 
@@ -43,59 +54,127 @@ impl Interpreter {
         match expr {
             Expr::Assign(name, value) => {
                 return self.interpret_assignment(name, *value);
-            },
+            }
             Expr::Binary(left, oper, right) => {
                 return self.interpret_binary(*left, oper, *right);
-            },
+            }
             Expr::Call(callee, paren, args) => {
                 todo!()
-            },
+            }
             Expr::Get(object, name) => {
                 todo!()
-            },
+            }
             Expr::Grouping(expression) => {
                 // Destructure the expression and recursivley interpret it's
                 // subexpressions
                 return self.interpret_expr(*expression);
-            },
+            }
             Expr::Literal(value) => {
                 return self.interpret_literal(value);
-            },
+            }
             Expr::Logic(left, operator, right) => {
                 return self.interpret_logical(*left, operator, *right);
-            },
+            }
             Expr::Set(object, name, value) => {
                 todo!()
-            },
+            }
             Expr::This(keyword) => {
                 todo!()
-            },
+            }
             Expr::Unary(operator, right) => {
                 return self.interpret_unary(operator, *right);
-            },
-            Expr::Variable(name) => {
-                todo!()
-            },
+            }
+            Expr::Variable(name) => self.interpret_var_expr(name),
         }
     }
 
     pub fn interpret_stmt(&mut self, stmt: Stmt) -> Result<Value, String> {
         match stmt {
-            Stmt::Block(_) => todo!(),
+            Stmt::Block(stmts) => self.execute_block(stmts, Environment::new()),
             Stmt::Class(_, _) => todo!(),
-            Stmt::Expression(expr) => {
-                self.interpret_expr(expr)
-            },
+            Stmt::Expression(expr) => self.interpret_expr(expr),
             Stmt::Function(_, _, _) => todo!(),
-            Stmt::If(_, _, _) => todo!(),
+            Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
             Stmt::Return(_, _) => todo!(),
-            Stmt::Var(_, _) => todo!(),
-            Stmt::While(_, _) => todo!(),
+            Stmt::Var(tok, initializer) => self.interpret_var_stmt(tok, initializer),
+            Stmt::While(cond, body) => self.interpret_while(&cond, body),
+            Stmt::Print(expr) => self.interpret_print(expr),
+        }
+    }
+
+    fn interpret_print(&mut self, expr: Expr) -> Result<Value, String> {
+        let val = self.interpret_expr(expr)?;
+        println!("{}", val);
+        return Ok(Value::Empty);
+    }
+
+    fn execute_block(&mut self, stmts: Vec<Stmt>, env: Environment) -> Result<Value, String> {
+        // let prev = self.environment.clone();
+
+        // self.environment = env;
+        // for stmt in stmts {
+        //     match self.interpret_stmt(stmt) {
+        //         Ok(_) => {}
+        //         Err(e) => {
+        //             self.environment = prev;
+        //             return Err(e);
+        //         }
+        //     }
+        // }
+        // Ok(Value::Empty)
+        self.environment = Environment::new_with_enclosing(self.environment.clone());
+        for stmt in stmts {
+            self.interpret_stmt(stmt)?;
+        }
+
+        if let Some(enclosing) = self.environment.enclosing.clone() {
+            self.environment = *enclosing;
+        }
+
+        Ok(Value::Empty)
+    }
+
+    fn interpret_var_stmt(&mut self, tok: Token, initializer: Option<Expr>) -> Result<Value, String> {
+        let value = match initializer {
+            Some(x) => Some(self.interpret_expr(x).unwrap()),
+            None => None,
+        };
+        self.environment.define(tok.lexeme, value);
+        return Ok(Value::Empty);
+    }
+
+    fn interpret_while(&mut self, cond: &Expr, body: Box<Stmt>) -> Result<Value, String> {
+        while Interpreter::is_truthy(self.interpret_expr(cond.clone())?) {
+            self.interpret_stmt(*body.clone())?;
+        }
+        Ok(Value::Empty)
+    }
+
+    fn interpret_if(
+        &mut self,
+        cond: Expr,
+        thenb: Box<Stmt>,
+        elseb: Box<Option<Stmt>>,
+    ) -> Result<Value, String> {
+        // If our condition is truthy, evaluate the then branch
+        if Interpreter::is_truthy(self.interpret_expr(cond)?) {
+            return self.interpret_stmt(*thenb);
+        } else {
+            // If our condition is falsy, then if we have Some else branch eval
+            // that, otherwise return an empty value as we fell through.
+            match *elseb {
+                Some(elsebranch) => return self.interpret_stmt(elsebranch),
+                None => {
+                    return Ok(Value::Empty);
+                }
+            }
         }
     }
 
     fn interpret_assignment(&mut self, name: Token, value: Expr) -> Result<Value, String> {
-        todo!()
+        let val = self.interpret_expr(value)?;
+        self.environment.assign(name, &val)?;
+        Ok(val)
     }
 
     fn interpret_binary(&mut self, left: Expr, oper: Token, right: Expr) -> Result<Value, String> {
@@ -107,23 +186,20 @@ impl Interpreter {
             // String concatenation is done with + because that's what everything
             // else uses. As such we need to handle this without tying ourselves
             // in knots or making rustc angry about types, so we do it here.
-            Value::String(ref x) => {
-                match right {
-                    Value::String(y) => {
-                        return Ok(Value::String(format!("{}{}", x, y)));
-                    }
-                    _ => {
-                        let emsg = format!("Attempted to concatenate values of incompatable types. left: {:?} right {:?}", x, left);
-                        return Err(emsg);
-                    }
+            Value::String(ref x) => match right {
+                Value::String(y) => {
+                    return Ok(Value::String(format!("{}{}", x, y)));
                 }
-            }
+                _ => {
+                    let emsg = format!("Attempted to concatenate values of incompatable types. left: {:?} right {:?}", x, left);
+                    return Err(emsg);
+                }
+            },
             _ => {
                 let emsg = format!("Attempted to apply a binary operation {:?} to {:?} and {:?} but lvalue ({:?}) is not a number!",
                                    oper, left, right, left);
                 return Err(emsg);
             }
-
         };
 
         let r = match right {
@@ -138,47 +214,56 @@ impl Interpreter {
         match oper.ttype {
             TokenType::Minus => {
                 return Ok(Value::Number(l - r));
-            },
+            }
             TokenType::Slash => {
                 if l == 0.0 || r == 0.0 {
-                    let emsg = format!("Attempted to divide by zero!. Expression was {} / {}", l, r);
+                    let emsg =
+                        format!("Attempted to divide by zero!. Expression was {} / {}", l, r);
                     return Err(emsg);
                 } else {
                     return Ok(Value::Number(l / r));
                 }
-            },
+            }
             TokenType::Star => {
                 return Ok(Value::Number(l * r));
-            },
+            }
             TokenType::Plus => {
                 return Ok(Value::Number(l + r));
-            },
+            }
             TokenType::EqualEqual => {
                 return Ok(Value::Bool(self.is_equal(left, right)));
-            },
+            }
             TokenType::BangEqual => {
                 return Ok(Value::Bool(!self.is_equal(left, right)));
-            },
+            }
             TokenType::Greater => {
                 return Ok(Value::Bool(l > r));
-            },
+            }
             TokenType::GreaterEqual => {
                 return Ok(Value::Bool(l >= r));
-            },
+            }
             TokenType::Less => {
                 return Ok(Value::Bool(l < r));
-            },
+            }
             TokenType::LessEqual => {
                 return Ok(Value::Bool(l <= r));
             }
             _ => {
-                let msg = format!("Attempted to evaluate an invalid binary expression. {:?} {:?} {:?}", left, oper, right);
+                let msg = format!(
+                    "Attempted to evaluate an invalid binary expression. {:?} {:?} {:?}",
+                    left, oper, right
+                );
                 return Err(msg);
             }
         }
     }
 
-    fn interpret_call(&mut self, callee: Expr, paren: Token, args: Vec<Expr>) -> Result<Value, String> {
+    fn interpret_call(
+        &mut self,
+        callee: Expr,
+        paren: Token,
+        args: Vec<Expr>,
+    ) -> Result<Value, String> {
         todo!()
     }
 
@@ -192,25 +277,34 @@ impl Interpreter {
 
     fn interpret_literal(&mut self, value: Literal) -> Result<Value, String> {
         match value {
-            Literal::Number(x) => {
-                Ok(Value::Number(x))
-            },
-            Literal::StrLit(x) => {
-                Ok(Value::String(x))
-            },
-            Literal::Bool(x) => {
-                Ok(Value::Bool(x))
-            },
-            Literal::Empty => {
-                Ok(Value::Empty)
-            },
+            Literal::Number(x) => Ok(Value::Number(x)),
+            Literal::StrLit(x) => Ok(Value::String(x)),
+            Literal::Bool(x) => Ok(Value::Bool(x)),
+            Literal::Empty => Ok(Value::Empty),
         }
     }
 
-    fn interpret_logical(&mut self, left: Expr, operator: Token, right: Expr) -> Result<Value, String> {
+    fn interpret_logical(
+        &mut self,
+        left: Expr,
+        operator: Token,
+        right: Expr,
+    ) -> Result<Value, String> {
         let left = self.interpret_expr(left)?;
-        let right = self.interpret_expr(right)?;
-        todo!()
+
+        // If we can short-circuit, then do.
+        match operator.ttype {
+            TokenType::Or => {
+                if Interpreter::is_truthy(left.clone()) {
+                    return Ok(left);
+                } else if !Interpreter::is_truthy(left.clone()) {
+                    return Ok(left);
+                }
+            },
+            _ => {}
+        }
+        // Otherwise actually eval our rhs
+        self.interpret_expr(right)
     }
 
     fn interpret_unary(&mut self, operator: Token, right: Expr) -> Result<Value, String> {
@@ -224,7 +318,7 @@ impl Interpreter {
                 match evaledright {
                     Value::Number(x) => {
                         return Ok(Value::Number(-x));
-                    },
+                    }
                     _ => {
                         // If we somehow got to the point where a unary oper
                         // is being applied to something other than a number we should
@@ -234,7 +328,7 @@ impl Interpreter {
                         return Err(emsg);
                     }
                 }
-            },
+            }
             TokenType::Bang => {
                 match evaledright {
                     // We take our truthyness and falsyness from ruby.
@@ -242,12 +336,12 @@ impl Interpreter {
                     Value::Empty => {
                         // Empty is fals-y so eval it to true
                         return Ok(Value::Bool(true));
-                    },
+                    }
                     Value::Bool(x) => {
                         // If the value we evaluated earlier is a boolean
                         // then negate that
                         return Ok(Value::Bool(!x));
-                    },
+                    }
                     _ => {
                         // Anything other than Empty or Bool::False is truthy
                         // so our negation is false.
@@ -256,8 +350,26 @@ impl Interpreter {
                 }
             }
             _ => {
-                let errormsg = format!("Attempted to interpret unary operation with expr {:?}", right.clone());
+                let errormsg = format!(
+                    "Attempted to interpret unary operation with expr {:?}",
+                    right.clone()
+                );
                 return Err(errormsg);
+            }
+        }
+    }
+
+    fn interpret_var_expr(&mut self, name: Token) -> Result<Value, String> {
+        match self.environment.get(name.clone()) {
+            Some(x) => {
+                return Ok(x);
+            }
+            None => {
+                let emsg = format!(
+                    "Tried to access undefined variable with the name {}",
+                    name.lexeme.clone()
+                );
+                return Err(emsg);
             }
         }
     }
@@ -272,15 +384,44 @@ impl Interpreter {
         return lv == rv;
     }
 
+    // Assoc functions. We dont need to take self for these so, we'll avoid
+    // the java-ism of making them methods.
+
+    /// Truthyness is wheater a value is treated as true, or false.
+    /// Booleans evaluate to themselves, Empty types are false, everything
+    /// else is truth-y. This is shamelessly inspired by how our zen masters
+    /// ruby do this.
+    fn is_truthy(val: Value) -> bool {
+        match val {
+            // The truthyness of a bool is itself.
+            Value::Bool(x) => {
+                return x;
+            }
+            // Empty types are fals-y
+            Value::Empty => {
+                return false;
+            }
+            // All other types are truthy.
+            _ => {
+                return true;
+            }
+        }
+    }
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::Parser;
-    use crate::token::*;
-    use crate::scanner::*;
     use super::Interpreter;
     use super::Value;
+    use crate::parser::Parser;
+    use crate::scanner::*;
+    use crate::token::*;
 
     #[test]
     fn addition_test() {
@@ -289,7 +430,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(15.0);
         assert!(result == expected);
@@ -302,7 +443,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(5.0);
         assert!(result == expected);
@@ -315,7 +456,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(15.0);
         assert!(result == expected);
@@ -328,7 +469,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Number(10.0);
         assert!(result == expected);
@@ -341,7 +482,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed);
         println!("{:?}", result);
         let result = result.unwrap().get(0).unwrap().clone();
@@ -357,7 +498,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
@@ -370,7 +511,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
@@ -383,7 +524,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
@@ -396,7 +537,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);
@@ -409,7 +550,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(false);
         assert!(result == expected);
@@ -422,7 +563,7 @@ mod tests {
         let tokens = s.scan_tokens();
         let mut p: Parser = Parser::new(tokens);
         let parsed = p.parse();
-        let mut i: Interpreter = Interpreter;
+        let mut i: Interpreter = Interpreter::new();
         let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
         let expected = Value::Bool(true);
         assert!(result == expected);

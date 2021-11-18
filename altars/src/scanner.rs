@@ -42,6 +42,7 @@ lazy_static! {
         m.insert("daemonium".to_string(), TokenType::Class);
         m.insert("cognatio".to_string(), TokenType::Super);
         m.insert("invocabo".to_string(), TokenType::Call);
+        m.insert("scribo".to_string(), TokenType::Print);
         return m;
     };
 }
@@ -357,8 +358,8 @@ impl Scanner {
 
 #[cfg(test)]
 mod tests {
-    use crate::token::*;
     use crate::scanner::*;
+    use crate::token::*;
     #[test]
     fn number_literal() {
         let testStr: String = "5;".to_string();

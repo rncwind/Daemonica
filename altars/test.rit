@@ -1,0 +1,6 @@
+ligamen a = 0;
+
+dum(a < 100) {
+  scribo a;
+  a = a + 1;
+}

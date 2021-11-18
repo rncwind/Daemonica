@@ -5,6 +5,7 @@ use crate::token::Token;
 
 /// We can wrap either `Stmt` or a `Expr` inside an ASTNode so we can treat them
 /// generically, up until the pattern matching stge
+#[derive(Clone, Debug, PartialEq)]
 pub enum ASTNode {
     ExprNode(Expr),
     StmtNode(Stmt),
@@ -18,10 +19,11 @@ pub enum Stmt {
     Class(Token, Vec<Stmt>),
     Expression(Expr),
     Function(Token, Vec<Token>, Vec<Stmt>),
-    If(Expr, Box<Stmt>, Box<Stmt>),
+    If(Expr, Box<Stmt>, Box<Option<Stmt>>),
     Return(Token, Expr),
-    Var(Token, Expr),
+    Var(Token, Option<Expr>),
     While(Expr, Box<Stmt>),
+    Print(Expr),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +54,25 @@ pub enum Value {
 pub trait Visitor<T> {
     fn visit_stmt(&mut self, x: &Stmt) -> T;
     fn visit_expr(&mut self, x: &Expr) -> T;
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Number(x) => {
+                write!(f, "{}", x)
+            }
+            Value::Bool(x) => {
+                write!(f, "{}", x)
+            },
+            Value::String(x) => {
+                write!(f, "{}", x)
+            },
+            Value::Empty => {
+                write!(f, "Empty")
+            },
+        }
+    }
 }
 
 impl Display for Stmt {
@@ -92,6 +113,7 @@ impl Display for Stmt {
             Stmt::Return(_, _) => todo!(),
             Stmt::Var(_, _) => todo!(),
             Stmt::While(_, _) => todo!(),
+            Stmt::Print(_) => todo!(),
         }
     }
 }
@@ -106,12 +128,25 @@ impl Display for Expr {
             Expr::Grouping(_) => todo!(),
             Expr::Literal(x) => {
                 write!(f, "\"{}\"", x)
-            },
+            }
             Expr::Logic(_, _, _) => todo!(),
             Expr::Set(_, _, _) => todo!(),
             Expr::This(_) => todo!(),
             Expr::Unary(_, _) => todo!(),
             Expr::Variable(_) => todo!(),
+        }
+    }
+}
+
+impl Display for ASTNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ASTNode::ExprNode(x) => {
+                write!(f, "{}", x)
+            }
+            ASTNode::StmtNode(x) => {
+                write!(f, "{}", x)
+            }
         }
     }
 }

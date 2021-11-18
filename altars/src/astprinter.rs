@@ -21,6 +21,7 @@ impl Visitor<String> for AstPrinter {
             Stmt::Return(_, _) => todo!(),
             Stmt::Var(_, _) => todo!(),
             Stmt::While(_, _) => todo!(),
+            _ => todo!(),
         }
     }
 

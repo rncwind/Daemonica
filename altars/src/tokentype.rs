@@ -48,6 +48,9 @@ pub enum TokenType {
     While,
     Call,
 
+    // Reserved
+    Print,
+
     EOF,
 }
 
