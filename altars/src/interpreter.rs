@@ -4,19 +4,25 @@ use crate::ast::Stmt;
 use crate::ast::Value;
 use crate::environment::Environment;
 use crate::literals::Literal;
+use crate::nativefn;
 use crate::token::Token;
 use crate::tokentype::TokenType;
 
 #[derive(Debug)]
 pub struct Interpreter {
-    environment: Environment,
+    pub globals: Environment,
+    current_env: Environment,
 }
 
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let mut globals = Environment::new();
+        globals.merge(nativefn::generate_native_functions());
+        let current_env = globals.clone();
         Interpreter {
-            environment: Environment::new(),
+            globals,
+            current_env,
         }
     }
 
@@ -30,7 +36,7 @@ impl Interpreter {
                     }
                     Err(y) => {
                         println!("Encountered an error {}", y);
-                        println!("Environment at this state was {:#?}", self.environment);
+                        println!("Environment at this state was {:#?}", self.globals);
                         return Err(y);
                     }
                 },
@@ -40,7 +46,7 @@ impl Interpreter {
                     }
                     Err(y) => {
                         println!("Encountered an error {}", y);
-                        println!("Environment at this state was {:#?}", self.environment);
+                        println!("Environment at this state was {:#?}", self.globals);
                         return Err(y);
                     }
                 },
@@ -59,7 +65,7 @@ impl Interpreter {
                 return self.interpret_binary(*left, oper, *right);
             }
             Expr::Call(callee, paren, args) => {
-                todo!()
+                self.interpret_call(*callee, paren, args)
             }
             Expr::Get(object, name) => {
                 todo!()
@@ -90,10 +96,10 @@ impl Interpreter {
 
     pub fn interpret_stmt(&mut self, stmt: Stmt) -> Result<Value, String> {
         match stmt {
-            Stmt::Block(stmts) => self.execute_block(stmts, Environment::new()),
+            Stmt::Block(stmts) => self.interpret_block(stmts, Environment::new()),
             Stmt::Class(_, _) => todo!(),
             Stmt::Expression(expr) => self.interpret_expr(expr),
-            Stmt::Function(_, _, _) => todo!(),
+            Stmt::Function(name, params, body) => self.interpret_function(name, params, body),
             Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
             Stmt::Return(_, _) => todo!(),
             Stmt::Var(tok, initializer) => self.interpret_var_stmt(tok, initializer),
@@ -102,34 +108,29 @@ impl Interpreter {
         }
     }
 
+    fn interpret_function(&mut self, name: Token, params: Vec<Token>, body: Vec<Stmt>) -> Result<Value, String> {
+        todo!()
+    }
+
     fn interpret_print(&mut self, expr: Expr) -> Result<Value, String> {
         let val = self.interpret_expr(expr)?;
         println!("{}", val);
         return Ok(Value::Empty);
     }
 
-    fn execute_block(&mut self, stmts: Vec<Stmt>, env: Environment) -> Result<Value, String> {
-        // let prev = self.environment.clone();
-
-        // self.environment = env;
-        // for stmt in stmts {
-        //     match self.interpret_stmt(stmt) {
-        //         Ok(_) => {}
-        //         Err(e) => {
-        //             self.environment = prev;
-        //             return Err(e);
-        //         }
-        //     }
-        // }
-        // Ok(Value::Empty)
-        self.environment = Environment::new_with_enclosing(self.environment.clone());
+    pub fn interpret_block(&mut self, stmts: Vec<Stmt>, env: Environment) -> Result<Value, String> {
+        let prevenv = self.current_env.clone();
+        self.current_env = env;
         for stmt in stmts {
-            self.interpret_stmt(stmt)?;
+            match self.interpret_stmt(stmt) {
+                Ok(_) => {},
+                Err(x) => {
+                    self.current_env = prevenv;
+                    return Err(x);
+                },
+            }
         }
-
-        if let Some(enclosing) = self.environment.enclosing.clone() {
-            self.environment = *enclosing;
-        }
+        self.current_env = prevenv;
 
         Ok(Value::Empty)
     }
@@ -139,7 +140,7 @@ impl Interpreter {
             Some(x) => Some(self.interpret_expr(x).unwrap()),
             None => None,
         };
-        self.environment.define(tok.lexeme, value);
+        self.globals.define(tok.lexeme, value);
         return Ok(Value::Empty);
     }
 
@@ -173,7 +174,7 @@ impl Interpreter {
 
     fn interpret_assignment(&mut self, name: Token, value: Expr) -> Result<Value, String> {
         let val = self.interpret_expr(value)?;
-        self.environment.assign(name, &val)?;
+        self.globals.assign(name, &val)?;
         Ok(val)
     }
 
@@ -261,7 +262,7 @@ impl Interpreter {
     fn interpret_call(
         &mut self,
         callee: Expr,
-        paren: Token,
+        _paren: Token,
         args: Vec<Expr>,
     ) -> Result<Value, String> {
         todo!()
@@ -360,7 +361,7 @@ impl Interpreter {
     }
 
     fn interpret_var_expr(&mut self, name: Token) -> Result<Value, String> {
-        match self.environment.get(name.clone()) {
+        match self.globals.get(name.clone()) {
             Some(x) => {
                 return Ok(x);
             }
@@ -407,6 +408,7 @@ impl Interpreter {
             }
         }
     }
+
 }
 
 impl Default for Interpreter {

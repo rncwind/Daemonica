@@ -25,6 +25,10 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Stmt {
+        if self.maybe_advance(vec![TokenType::Fn]) {
+            //return self.function();
+            todo!()
+        }
         if self.maybe_advance(vec![TokenType::Var]) {
             return self.var_decl();
         }
@@ -56,13 +60,19 @@ impl Parser {
         return Stmt::Print(val);
     }
 
+    /// We desugar for statments into their component parts. As any for loop
+    /// can also be expressed as a while loop, with some extra code that ends
+    /// before execution (initialize the variables), and some code that runs
+    /// before each iteration (incrementation etc) we can instead of implementing
+    /// the for loop itself, break the expression into it's components, inside the
+    /// AST, avoiding adding an explicit case to the interpreter.
     fn parse_for(&mut self) -> Stmt {
         self.consume(TokenType::LeftParen);
         // Parse out the various parts of our for statement, for desugaring
         // in a second
 
         // Parse our initializer
-        let mut initializer: Option<Stmt> = None;
+        let initializer: Option<Stmt>;
         if self.maybe_advance(vec![TokenType::Semicolon]) {
             initializer = None;
         } else if self.maybe_advance(vec![TokenType::Var]) {
@@ -109,6 +119,20 @@ impl Parser {
         body
     }
 
+    fn while_stmt(&mut self) -> Stmt {
+        self.consume(TokenType::LeftParen);
+        let condition = self.expression();
+        self.consume(TokenType::RightParen);
+        let body = self.statement();
+        return Stmt::While(condition, Box::new(body));
+    }
+
+    fn expression_stmt(&mut self) -> Stmt {
+        let expr = self.expression();
+        self.consume(TokenType::Semicolon);
+        Stmt::Expression(expr)
+    }
+
     fn var_decl(&mut self) -> Stmt {
         // Grab the variable name first of all, so we can bind it
         let name = self.consume(TokenType::Identifier);
@@ -124,20 +148,6 @@ impl Parser {
             self.consume(TokenType::Semicolon);
             return Stmt::Var(name, None);
         }
-    }
-
-    fn while_stmt(&mut self) -> Stmt {
-        self.consume(TokenType::LeftParen);
-        let condition = self.expression();
-        self.consume(TokenType::RightParen);
-        let body = self.statement();
-        return Stmt::While(condition, Box::new(body));
-    }
-
-    fn expression_stmt(&mut self) -> Stmt {
-        let expr = self.expression();
-        self.consume(TokenType::Semicolon);
-        Stmt::Expression(expr)
     }
 
     fn block(&mut self) -> Vec<Stmt> {
@@ -163,11 +173,12 @@ impl Parser {
         return Stmt::If(condition, Box::new(thenb), Box::new(elseb));
     }
 
+    /// Top level for expressions.
     fn expression(&mut self) -> Expr {
-        //self.equality()
         self.assignment()
     }
 
+    /// Parse varaible assignment
     fn assignment(&mut self) -> Expr {
         let expr = self.parse_or();
 
@@ -200,6 +211,7 @@ impl Parser {
         expr
     }
 
+    /// Parse logical And
     fn parse_and(&mut self) -> Expr {
         let mut expr = self.equality();
 
@@ -272,7 +284,8 @@ impl Parser {
             let right = self.unary();
             Expr::Unary(op, Box::new(right))
         } else {
-            // If it's not a unary expr, then we have a primary expression
+            // If it's not a unary expr, then we might have a call
+            //self.call()
             self.primary()
         }
     }

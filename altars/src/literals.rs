@@ -8,7 +8,7 @@ use std::fmt::Display;
 // only refering to some Literal type, when it contains some value.
 // As a wise man once said, there is power in a union.
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Literal {
     Number(f64),
     StrLit(String),

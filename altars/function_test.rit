@@ -1,0 +1,5 @@
+incantatio sayHi(first, last) {
+  scribo "Hi, " + first + " " + last + "!";
+}
+
+sayHi("Dear", "Leader");

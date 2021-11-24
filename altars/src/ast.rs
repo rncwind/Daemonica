@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 
 use crate::literals::Literal;
+use crate::nativefn::NativeFn;
 use crate::token::Token;
 
 /// We can wrap either `Stmt` or a `Expr` inside an ASTNode so we can treat them
@@ -46,6 +47,8 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     String(String),
+    NativeFn(NativeFn),
+    //UserFn(UserFunction),
     Empty,
 }
 
@@ -54,6 +57,25 @@ pub enum Value {
 pub trait Visitor<T> {
     fn visit_stmt(&mut self, x: &Stmt) -> T;
     fn visit_expr(&mut self, x: &Expr) -> T;
+}
+
+impl From<Literal> for Value {
+    fn from(lit: Literal) -> Self {
+        match lit {
+            Literal::Number(v) => {
+                return Value::Number(v);
+            },
+            Literal::StrLit(v) => {
+                return Value::String(v);
+            },
+            Literal::Bool(v) => {
+                return Value::Bool(v);
+            },
+            Literal::Empty => {
+                return Value::Empty;
+            },
+        }
+    }
 }
 
 impl Display for Value {
@@ -71,6 +93,15 @@ impl Display for Value {
             Value::Empty => {
                 write!(f, "Empty")
             },
+            Value::NativeFn(x) => {
+                write!(f, "{}", x)
+            },
+            // Value::UserFn(x) => {
+            //     write!(f, "{}", x)
+            // },
+            //Value::Symbol(n, v) => {
+                //write!(f, "{} = {}", n, *v)
+            //}
         }
     }
 }
@@ -150,3 +181,4 @@ impl Display for ASTNode {
         }
     }
 }
+

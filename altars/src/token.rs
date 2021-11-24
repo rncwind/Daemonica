@@ -4,7 +4,7 @@ use std::fmt::Display;
 use crate::literals::Literal;
 use crate::tokentype::TokenType;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Token {
     pub ttype: TokenType,
     pub lexeme: String,

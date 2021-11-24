@@ -7,6 +7,9 @@ mod parser;
 mod scanner;
 mod token;
 mod tokentype;
+mod callable;
+mod nativefn;
+mod userfunction;
 
 use std::fs;
 use std::io;
