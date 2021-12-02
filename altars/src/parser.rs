@@ -26,8 +26,7 @@ impl Parser {
 
     fn declaration(&mut self) -> Stmt {
         if self.maybe_advance(vec![TokenType::Fn]) {
-            //return self.function();
-            todo!()
+            return self.function();
         }
         if self.maybe_advance(vec![TokenType::Var]) {
             return self.var_decl();
@@ -38,6 +37,9 @@ impl Parser {
     fn statement(&mut self) -> Stmt {
         if self.maybe_advance(vec![TokenType::Print]) {
             return self.parse_print();
+        }
+        if self.maybe_advance(vec![TokenType::Return]) {
+            return self.parse_return();
         }
         if self.maybe_advance(vec![TokenType::LeftBrace]) {
             return Stmt::Block(self.block());
@@ -58,6 +60,16 @@ impl Parser {
         let val = self.expression();
         self.consume(TokenType::Semicolon);
         return Stmt::Print(val);
+    }
+
+    fn parse_return(&mut self) -> Stmt {
+        let prev = self.previous();
+        let mut value = None;
+        if !self.check(TokenType::Semicolon) {
+            value = Some(self.expression());
+        }
+        self.consume(TokenType::Semicolon);
+        Stmt::Return(prev, value)
     }
 
     /// We desugar for statments into their component parts. As any for loop
@@ -131,6 +143,13 @@ impl Parser {
         let expr = self.expression();
         self.consume(TokenType::Semicolon);
         Stmt::Expression(expr)
+    }
+
+    fn function(&mut self) -> Stmt {
+        let name = self.consume(TokenType::Identifier);
+        self.consume(TokenType::LeftBrace);
+        let body = self.block();
+        Stmt::Function(name, body)
     }
 
     fn var_decl(&mut self) -> Stmt {
@@ -285,9 +304,18 @@ impl Parser {
             Expr::Unary(op, Box::new(right))
         } else {
             // If it's not a unary expr, then we might have a call
-            //self.call()
-            self.primary()
+            self.call()
+            //self.primary()
         }
+    }
+
+    fn call(&mut self) -> Expr {
+        let expr = self.primary();
+        if self.maybe_advance(vec![TokenType::LeftParen]) {
+            let paren = self.consume(TokenType::RightParen);
+            return Expr::Call(Box::new(expr), paren);
+        }
+        return expr;
     }
 
     fn primary(&mut self) -> Expr {

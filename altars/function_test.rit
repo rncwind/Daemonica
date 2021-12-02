@@ -1,5 +1,7 @@
-incantatio sayHi(first, last) {
+incantatio sayHi {
   scribo "Hi, " + first + " " + last + "!";
 }
 
-sayHi("Dear", "Leader");
+ligamen first = "Dear";
+ligamen last = "Leader";
+sayHi();

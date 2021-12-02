@@ -1,0 +1,9 @@
+ligamen a = 0;
+
+incantatio rec {
+  a = a + 1;
+  scribo a;
+  rec();
+}
+
+rec();

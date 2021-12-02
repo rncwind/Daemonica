@@ -1,0 +1,12 @@
+ligamen n = 0;
+
+incantatio test {
+  n = n + 1;
+  beneficium 5;
+  n = 1337;
+}
+
+scribo n;
+scribo test();
+test();
+scribo n;

@@ -3,6 +3,7 @@ use std::fmt::{self, Display};
 use crate::literals::Literal;
 use crate::nativefn::NativeFn;
 use crate::token::Token;
+use crate::userfunction::UserFunction;
 
 /// We can wrap either `Stmt` or a `Expr` inside an ASTNode so we can treat them
 /// generically, up until the pattern matching stge
@@ -19,9 +20,11 @@ pub enum Stmt {
     Block(Vec<Stmt>),
     Class(Token, Vec<Stmt>),
     Expression(Expr),
-    Function(Token, Vec<Token>, Vec<Stmt>),
+    //Function(Token, Vec<Token>, Vec<Stmt>),
+    // GlobalFunction.
+    Function(Token, Vec<Stmt>),
     If(Expr, Box<Stmt>, Box<Option<Stmt>>),
-    Return(Token, Expr),
+    Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
     While(Expr, Box<Stmt>),
     Print(Expr),
@@ -31,7 +34,7 @@ pub enum Stmt {
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
-    Call(Box<Expr>, Token, Vec<Expr>),
+    Call(Box<Expr>, Token),
     Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Literal),
@@ -48,7 +51,7 @@ pub enum Value {
     Bool(bool),
     String(String),
     NativeFn(NativeFn),
-    //UserFn(UserFunction),
+    UserFn(UserFunction),
     Empty,
 }
 
@@ -96,9 +99,9 @@ impl Display for Value {
             Value::NativeFn(x) => {
                 write!(f, "{}", x)
             },
-            // Value::UserFn(x) => {
-            //     write!(f, "{}", x)
-            // },
+            Value::UserFn(x) => {
+                write!(f, "{:?}", x)
+            },
             //Value::Symbol(n, v) => {
                 //write!(f, "{} = {}", n, *v)
             //}
@@ -127,17 +130,12 @@ impl Display for Stmt {
             Stmt::Expression(expr) => {
                 write!(f, "EXPR: ( {} )", expr)
             }
-            Stmt::Function(name, params, body) => {
-                let mut rv = String::from("FN : ( ");
-                rv = format!("{} name: {} params: ( ", rv, name);
-                for param in params {
-                    rv = format!("{} {}", rv, param);
-                }
-                rv = format!("{} ) body: ( ", rv);
+            Stmt::Function(name, body) => {
+                let mut rv = format!("Fn {}: Body: {{", name);
                 for stmt in body {
                     rv = format!("{} {}", rv, stmt);
                 }
-                rv = format!("{} )", rv);
+                rv = format!("{} }}", rv);
                 write!(f, "{}", rv)
             }
             Stmt::If(_, _, _) => todo!(),
@@ -154,7 +152,7 @@ impl Display for Expr {
         match self {
             Expr::Assign(_, _) => todo!(),
             Expr::Binary(_, _, _) => todo!(),
-            Expr::Call(_, _, _) => todo!(),
+            Expr::Call(_, _) => todo!(),
             Expr::Get(_, _) => todo!(),
             Expr::Grouping(_) => todo!(),
             Expr::Literal(x) => {

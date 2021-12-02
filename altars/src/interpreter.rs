@@ -7,23 +7,19 @@ use crate::literals::Literal;
 use crate::nativefn;
 use crate::token::Token;
 use crate::tokentype::TokenType;
+use crate::userfunction::UserFunction;
 
 #[derive(Debug)]
 pub struct Interpreter {
-    pub globals: Environment,
-    current_env: Environment,
+    pub environment: Environment,
+    retval: Option<Value>
 }
 
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
-        let mut globals = Environment::new();
-        globals.merge(nativefn::generate_native_functions());
-        let current_env = globals.clone();
-        Interpreter {
-            globals,
-            current_env,
-        }
+        let environment = Environment::from_ht(nativefn::generate_native_functions());
+        return Interpreter{environment, retval: None}
     }
 
     pub fn interpret(&mut self, nodes: Vec<ASTNode>) -> Result<Vec<Value>, String> {
@@ -36,7 +32,7 @@ impl Interpreter {
                     }
                     Err(y) => {
                         println!("Encountered an error {}", y);
-                        println!("Environment at this state was {:#?}", self.globals);
+                        println!("Environment at this state was {:#?}", self.environment);
                         return Err(y);
                     }
                 },
@@ -46,7 +42,7 @@ impl Interpreter {
                     }
                     Err(y) => {
                         println!("Encountered an error {}", y);
-                        println!("Environment at this state was {:#?}", self.globals);
+                        println!("Environment at this state was {:#?}", self.environment);
                         return Err(y);
                     }
                 },
@@ -64,8 +60,8 @@ impl Interpreter {
             Expr::Binary(left, oper, right) => {
                 return self.interpret_binary(*left, oper, *right);
             }
-            Expr::Call(callee, paren, args) => {
-                self.interpret_call(*callee, paren, args)
+            Expr::Call(callee, paren) => {
+                self.interpret_call(*callee, paren)
             }
             Expr::Get(object, name) => {
                 todo!()
@@ -96,20 +92,22 @@ impl Interpreter {
 
     pub fn interpret_stmt(&mut self, stmt: Stmt) -> Result<Value, String> {
         match stmt {
-            Stmt::Block(stmts) => self.interpret_block(stmts, Environment::new()),
+            Stmt::Block(stmts) => self.interpret_block(stmts, self.environment.clone()),
             Stmt::Class(_, _) => todo!(),
             Stmt::Expression(expr) => self.interpret_expr(expr),
-            Stmt::Function(name, params, body) => self.interpret_function(name, params, body),
+            Stmt::Function(name, body) => self.interpret_function(name, body),
             Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
-            Stmt::Return(_, _) => todo!(),
+            Stmt::Return(_, _) => {return Ok(Value::Empty)},
             Stmt::Var(tok, initializer) => self.interpret_var_stmt(tok, initializer),
             Stmt::While(cond, body) => self.interpret_while(&cond, body),
             Stmt::Print(expr) => self.interpret_print(expr),
         }
     }
 
-    fn interpret_function(&mut self, name: Token, params: Vec<Token>, body: Vec<Stmt>) -> Result<Value, String> {
-        todo!()
+    fn interpret_function(&mut self, name: Token, body: Vec<Stmt>) -> Result<Value, String> {
+        let fun = Value::UserFn(UserFunction::new(name.clone(), body));
+        self.environment.define(name.lexeme, Some(fun.clone()));
+        Ok(Value::Empty)
     }
 
     fn interpret_print(&mut self, expr: Expr) -> Result<Value, String> {
@@ -119,18 +117,18 @@ impl Interpreter {
     }
 
     pub fn interpret_block(&mut self, stmts: Vec<Stmt>, env: Environment) -> Result<Value, String> {
-        let prevenv = self.current_env.clone();
-        self.current_env = env;
+        let prevenv = self.environment.clone();
+        self.environment = env;
         for stmt in stmts {
             match self.interpret_stmt(stmt) {
                 Ok(_) => {},
                 Err(x) => {
-                    self.current_env = prevenv;
+                    self.environment = prevenv;
                     return Err(x);
                 },
             }
         }
-        self.current_env = prevenv;
+        //self.environment = prevenv;
 
         Ok(Value::Empty)
     }
@@ -140,7 +138,7 @@ impl Interpreter {
             Some(x) => Some(self.interpret_expr(x).unwrap()),
             None => None,
         };
-        self.globals.define(tok.lexeme, value);
+        self.environment.define(tok.lexeme, value);
         return Ok(Value::Empty);
     }
 
@@ -174,7 +172,7 @@ impl Interpreter {
 
     fn interpret_assignment(&mut self, name: Token, value: Expr) -> Result<Value, String> {
         let val = self.interpret_expr(value)?;
-        self.globals.assign(name, &val)?;
+        self.environment.assign(name, &val)?;
         Ok(val)
     }
 
@@ -263,16 +261,47 @@ impl Interpreter {
         &mut self,
         callee: Expr,
         _paren: Token,
-        args: Vec<Expr>,
     ) -> Result<Value, String> {
-        todo!()
+        let evaled = match callee {
+            Expr::Variable(ref v) => {
+                match self.environment.get(v.clone()) {
+                    Some(f) => {
+                        f
+                    },
+                    None => {
+                        let emsg = format!("Tried to call undefined function {}", v.lexeme);
+                        return Err(emsg);
+                    },
+                }
+            }
+            _ => {
+                let emsg = format!("Tried to call {} as a function, when it is a {}.", callee.clone(), callee);
+                return Err(emsg);
+            }
+        };
+        match evaled {
+            Value::NativeFn(_) => todo!(),
+            Value::UserFn(f) => {
+                match f.call(self) {
+                    Ok(mutated) => {
+                        self.environment = mutated;
+                    },
+                    Err(failure) => {
+                        let emsg = failure.1;
+                        return Err(emsg);
+                    },
+                }
+            },
+            _ => {
+                let emsg = format!("{} is neither a function, nor a language construct, it is a {}", callee, evaled);
+                return Err(emsg);
+            }
+        }
+        return Ok(Value::Empty);
+        //dbg!(self.environment.clone());
     }
 
     fn interpret_get(&mut self, object: Expr, name: Token) -> Result<Value, String> {
-        todo!()
-    }
-
-    fn interpret_grouping(&mut self, expression: Expr) -> Result<Value, String> {
         todo!()
     }
 
@@ -361,11 +390,12 @@ impl Interpreter {
     }
 
     fn interpret_var_expr(&mut self, name: Token) -> Result<Value, String> {
-        match self.globals.get(name.clone()) {
+        match self.environment.get(name.clone()) {
             Some(x) => {
                 return Ok(x);
             }
             None => {
+                dbg!(self.environment.clone());
                 let emsg = format!(
                     "Tried to access undefined variable with the name {}",
                     name.lexeme.clone()
