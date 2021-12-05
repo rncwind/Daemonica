@@ -1,3 +1,4 @@
+//! Datatypes that are present inside our generated ASTs.
 use std::fmt::{self, Display};
 
 use crate::literals::Literal;
@@ -5,15 +6,15 @@ use crate::nativefn::NativeFn;
 use crate::token::Token;
 use crate::userfunction::UserFunction;
 
-/// We can wrap either `Stmt` or a `Expr` inside an ASTNode so we can treat them
-/// generically, up until the pattern matching stge
+/// Wraps either an Expr or an Stmt in one type so that we can treat them generically
+/// until we actually have to destructure the type for Interpretation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ASTNode {
     ExprNode(Expr),
     StmtNode(Stmt),
 }
 
-/// Each statement or expression is represented as a dumb algebraic type that
+/// Each statement or expression is represented as an algebraic variant that
 /// contains it's constituent parts.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
@@ -30,11 +31,14 @@ pub enum Stmt {
     Print(Expr),
 }
 
+/// Simmilar to the Stmt, we treat each Expression as an algebraic variant of this
+/// enum.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Call(Box<Expr>, Token),
+    //Call(Box<Expr>, Token, Vec<Expr>),
     Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Literal),
@@ -45,6 +49,14 @@ pub enum Expr {
     Variable(Token),
 }
 
+/// We need some way to store state inside the interpreter. This is how.
+///
+/// Once again, we use ADTs in order to define the possible variants of a Value.
+/// This can be many things from stuff exposed to the user, such as numbers, booleans
+/// and strings, to the Empty type (No nulls here!), or the internal representations
+/// of how we move about and store functions.
+///
+/// If it's data, and it's (nominally) mutable at runtime, it's probably a Value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Number(f64),
@@ -55,28 +67,22 @@ pub enum Value {
     Empty,
 }
 
-/// This is a trait that allows any given struct to implement the visitor pattern
-/// for any of statement or expression.
-pub trait Visitor<T> {
-    fn visit_stmt(&mut self, x: &Stmt) -> T;
-    fn visit_expr(&mut self, x: &Expr) -> T;
-}
-
+/// This allows us to convert from Literals to values.
 impl From<Literal> for Value {
     fn from(lit: Literal) -> Self {
         match lit {
             Literal::Number(v) => {
                 return Value::Number(v);
-            },
+            }
             Literal::StrLit(v) => {
                 return Value::String(v);
-            },
+            }
             Literal::Bool(v) => {
                 return Value::Bool(v);
-            },
+            }
             Literal::Empty => {
                 return Value::Empty;
-            },
+            }
         }
     }
 }
@@ -89,22 +95,21 @@ impl Display for Value {
             }
             Value::Bool(x) => {
                 write!(f, "{}", x)
-            },
+            }
             Value::String(x) => {
                 write!(f, "{}", x)
-            },
+            }
             Value::Empty => {
                 write!(f, "Empty")
-            },
+            }
             Value::NativeFn(x) => {
                 write!(f, "{}", x)
-            },
+            }
             Value::UserFn(x) => {
                 write!(f, "{:?}", x)
-            },
-            //Value::Symbol(n, v) => {
-                //write!(f, "{} = {}", n, *v)
-            //}
+            } //Value::Symbol(n, v) => {
+              //write!(f, "{} = {}", n, *v)
+              //}
         }
     }
 }
@@ -179,4 +184,3 @@ impl Display for ASTNode {
         }
     }
 }
-

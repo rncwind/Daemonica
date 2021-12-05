@@ -1,3 +1,5 @@
+//! A big old enum that contains every variant of allowable tokens in the grammar.
+
 use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]

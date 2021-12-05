@@ -1,13 +1,13 @@
 mod ast;
+mod callable;
 mod environment;
 mod interpreter;
 mod literals;
+mod nativefn;
 mod parser;
 mod scanner;
 mod token;
 mod tokentype;
-mod callable;
-mod nativefn;
 mod userfunction;
 
 use std::fs;
@@ -21,6 +21,7 @@ use rustyline::Editor;
 
 use clap::{AppSettings, Parser as ClapParser};
 
+/// Clap-based CLI Option Parser
 #[derive(ClapParser)]
 #[clap(version = "0.1")]
 struct Opts {
@@ -30,9 +31,7 @@ struct Opts {
 fn main() {
     let opts: Opts = Opts::parse();
     match opts.sourcefile {
-        Some(x) => {
-            run_file(x)
-        },
+        Some(x) => run_file(x),
         _ => {
             repl();
         }
@@ -49,6 +48,7 @@ fn run_file(path: String) {
     run(ritual.unwrap(), &mut interpreter);
 }
 
+/// A (very) simple Read-Eval-Print-Loop for Daemonica.
 fn repl() {
     let mut rl = Editor::<()>::new();
     let mut interpreter = Interpreter::new();
@@ -67,11 +67,13 @@ fn repl() {
 }
 
 fn run(src: String, i: &mut Interpreter) {
-    let mut s: Scanner = Scanner::new(src);
-    let tokens = s.scan_tokens();
-    let mut p: Parser = Parser::new(tokens);
-    let parsed = p.parse();
+    let tokens = Scanner::scan(src);
+    let parsed = Parser::parse(tokens);
+    //let mut s: Scanner = Scanner::new(src);
+    //let tokens = s.scan_tokens();
+    //let mut p: Parser = Parser::new(tokens);
+    //let parsed = p.parse_self();
     //println!("{:#?}", parsed);
     let result = i.interpret(parsed);
-    //println!("{:#?}", result);
+    //println!("{:#?}", result.unwrap());
 }

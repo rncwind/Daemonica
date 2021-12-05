@@ -1,3 +1,4 @@
+//! State, Binding, Scope and name tracking.
 use std::collections::HashMap;
 
 use crate::{ast::Value, token::Token};
@@ -32,15 +33,15 @@ impl Environment {
         self.values.insert(name, val);
     }
 
-    pub fn get(&mut self, name: Token) -> Option<Value> {
+    pub fn get(&self, name: Token) -> Option<Value> {
         let symbol = name.lexeme.clone();
         match self.values.get(&symbol) {
             Some(val) => {
                 return val.clone();
-            },
+            }
             None => {
                 return None;
-            },
+            }
         }
     }
 
@@ -49,7 +50,11 @@ impl Environment {
             self.define(name.lexeme, Some(val.clone()));
             return Ok(());
         } else {
-            let emsg = format!("Error: Tried to assign value {} to undefined variable {}", name.lexeme, val.clone());
+            let emsg = format!(
+                "Error: Tried to assign value {} to undefined variable {}",
+                name.lexeme,
+                val.clone()
+            );
             return Err(emsg);
         }
     }
@@ -64,49 +69,4 @@ impl Environment {
         let other = other.values.clone();
         self.merge_defs(other)
     }
-
-    // pub fn get(&mut self, name: Token) -> Option<Value> {
-    //     let symbol = name.lexeme.clone();
-    //     if self.values.contains_key(&name.lexeme) {
-    //         return self.values.get(&symbol).unwrap().clone();
-    //     } else {
-    //         dbg!(self.clone());
-    //         // Check any enclosing scopes that we have.
-    //         match self.enclosing {
-    //             Some(_) => {
-    //                 return self
-    //                     .enclosing
-    //                     .as_ref()
-    //                     .unwrap()
-    //                     .values
-    //                     .get(&symbol)
-    //                     .unwrap()
-    //                     .clone();
-    //             }
-    //             _ => None,
-    //         }
-    //     }
-    // }
-
-    // pub fn assign(&mut self, name: Token, val: &Value) -> Result<(), String> {
-    //     if self.values.contains_key(&name.lexeme) {
-    //         self.define(name.lexeme, Some(val.clone()));
-    //         return Ok(());
-    //     }
-
-    //     match &mut self.enclosing {
-    //         Some(enc) => {
-    //             enc.assign(name.clone(), val)?;
-    //             return Ok(());
-    //         }
-    //         _ => {
-    //             let emsg = format!("Undefined variable {}", name.lexeme);
-    //             Err(emsg)
-    //         }
-    //     }
-    // }
-
-    // pub fn merge(&mut self, other: HashMap<String, Option<Value>>) {
-    //     self.values.extend(other);
-    // }
 }

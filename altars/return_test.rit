@@ -1,4 +1,4 @@
-ligamen n = 0;
+/*ligamen n = 0;
 
 incantatio test {
   n = n + 1;
@@ -9,4 +9,11 @@ incantatio test {
 scribo n;
 scribo test();
 test();
+scribo n;*/
+
+ligamen n = 0;
+incantatio test {
+  beneficum 5;
+}
+ligamen n = test();
 scribo n;

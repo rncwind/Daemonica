@@ -1,11 +1,14 @@
-use core::fmt;
-use std::{collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
+//! Language-level functions and builtins.
+use core::{fmt, time};
+use std::{
+    collections::HashMap,
+    thread,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use fxhash::{hash64};
+use fxhash::hash64;
 
 use crate::{ast::Value, callable::Callable, interpreter::Interpreter};
-
-
 
 #[derive(Clone)]
 pub struct NativeFn {
@@ -28,17 +31,22 @@ impl NativeFn {
     pub fn stringify_for_hash(&self) -> String {
         format!("{}.{}", self.name, self.arity)
     }
-}
 
-impl Callable for NativeFn {
-    fn arity(&self, interpreter: &Interpreter) -> usize {
-        self.arity
-    }
-
-    fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, String> {
-        (self.func)(interpreter, args)
+    pub fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, String> {
+        let res = (self.func)(interpreter, args)?;
+        interpreter
+            .environment
+            .define(String::from("tempus"), Some(res.clone()));
+        Ok(res)
     }
 }
+
+// impl Callable for NativeFn {
+//     fn arity(&self, interpreter: &Interpreter) -> usize {
+//         self.arity
+//     }
+
+// }
 
 impl fmt::Debug for NativeFn {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -52,16 +60,31 @@ impl fmt::Display for NativeFn {
     }
 }
 
-
 pub fn generate_native_functions() -> HashMap<String, Option<Value>> {
     let mut funcs: HashMap<String, Option<Value>> = HashMap::new();
-    funcs.insert(String::from("clock"), Some(Value::NativeFn(NativeFn{
-        name: "horologium".to_string(),
-        arity: 0,
-        func: |_, _| {
-            let start_time = SystemTime::now();
-            Ok(Value::Number(start_time.duration_since(UNIX_EPOCH).unwrap().as_millis() as f64))
-        }
-    })));
+    funcs.insert(
+        String::from("horologium"),
+        Some(Value::NativeFn(NativeFn {
+            name: "horologium".to_string(),
+            arity: 0,
+            func: |_, _| {
+                let start_time = SystemTime::now();
+                Ok(Value::Number(
+                    start_time.duration_since(UNIX_EPOCH).unwrap().as_millis() as f64,
+                ))
+            },
+        })),
+    );
+    funcs.insert(
+        String::from("manere"),
+        Some(Value::NativeFn(NativeFn {
+            name: "manere".to_string(),
+            arity: 0,
+            func: |_, _| {
+                thread::sleep(time::Duration::from_secs(5));
+                Ok(Value::Empty)
+            },
+        })),
+    );
     funcs
 }

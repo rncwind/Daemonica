@@ -1,3 +1,4 @@
+//! A Tree Walk Interpreter for the Daemonica Language
 use crate::ast::ASTNode;
 use crate::ast::Expr;
 use crate::ast::Stmt;
@@ -12,14 +13,17 @@ use crate::userfunction::UserFunction;
 #[derive(Debug)]
 pub struct Interpreter {
     pub environment: Environment,
-    retval: Option<Value>
+    retval: Option<Value>,
 }
 
 //impl<T> Visitor<T> for Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
         let environment = Environment::from_ht(nativefn::generate_native_functions());
-        return Interpreter{environment, retval: None}
+        return Interpreter {
+            environment,
+            retval: None,
+        };
     }
 
     pub fn interpret(&mut self, nodes: Vec<ASTNode>) -> Result<Vec<Value>, String> {
@@ -60,9 +64,7 @@ impl Interpreter {
             Expr::Binary(left, oper, right) => {
                 return self.interpret_binary(*left, oper, *right);
             }
-            Expr::Call(callee, paren) => {
-                self.interpret_call(*callee, paren)
-            }
+            Expr::Call(callee, paren) => self.interpret_call(*callee, paren),
             Expr::Get(object, name) => {
                 todo!()
             }
@@ -97,7 +99,7 @@ impl Interpreter {
             Stmt::Expression(expr) => self.interpret_expr(expr),
             Stmt::Function(name, body) => self.interpret_function(name, body),
             Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
-            Stmt::Return(_, _) => {return Ok(Value::Empty)},
+            Stmt::Return(_, _) => return Ok(Value::Empty),
             Stmt::Var(tok, initializer) => self.interpret_var_stmt(tok, initializer),
             Stmt::While(cond, body) => self.interpret_while(&cond, body),
             Stmt::Print(expr) => self.interpret_print(expr),
@@ -121,11 +123,11 @@ impl Interpreter {
         self.environment = env;
         for stmt in stmts {
             match self.interpret_stmt(stmt) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(x) => {
                     self.environment = prevenv;
                     return Err(x);
-                },
+                }
             }
         }
         //self.environment = prevenv;
@@ -133,7 +135,11 @@ impl Interpreter {
         Ok(Value::Empty)
     }
 
-    fn interpret_var_stmt(&mut self, tok: Token, initializer: Option<Expr>) -> Result<Value, String> {
+    fn interpret_var_stmt(
+        &mut self,
+        tok: Token,
+        initializer: Option<Expr>,
+    ) -> Result<Value, String> {
         let value = match initializer {
             Some(x) => Some(self.interpret_expr(x).unwrap()),
             None => None,
@@ -257,43 +263,47 @@ impl Interpreter {
         }
     }
 
-    fn interpret_call(
-        &mut self,
-        callee: Expr,
-        _paren: Token,
-    ) -> Result<Value, String> {
+    fn interpret_call(&mut self, callee: Expr, _paren: Token) -> Result<Value, String> {
         let evaled = match callee {
-            Expr::Variable(ref v) => {
-                match self.environment.get(v.clone()) {
-                    Some(f) => {
-                        f
-                    },
-                    None => {
-                        let emsg = format!("Tried to call undefined function {}", v.lexeme);
-                        return Err(emsg);
-                    },
+            Expr::Variable(ref v) => match self.environment.get(v.clone()) {
+                Some(f) => f,
+                None => {
+                    let emsg = format!("Tried to call undefined function {}", v.lexeme);
+                    return Err(emsg);
                 }
-            }
+            },
             _ => {
-                let emsg = format!("Tried to call {} as a function, when it is a {}.", callee.clone(), callee);
+                let emsg = format!(
+                    "Tried to call {} as a function, when it is a {}.",
+                    callee.clone(),
+                    callee
+                );
                 return Err(emsg);
             }
         };
         match evaled {
-            Value::NativeFn(_) => todo!(),
-            Value::UserFn(f) => {
-                match f.call(self) {
-                    Ok(mutated) => {
-                        self.environment = mutated;
-                    },
-                    Err(failure) => {
-                        let emsg = failure.1;
-                        return Err(emsg);
-                    },
+            Value::NativeFn(f) => match f.call(self, vec![]) {
+                Ok(_) => {
+                    dbg!(self.environment.clone());
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            },
+            Value::UserFn(f) => match f.call(self) {
+                Ok(mutated) => {
+                    self.environment = mutated;
+                }
+                Err(failure) => {
+                    let emsg = failure.1;
+                    return Err(emsg);
                 }
             },
             _ => {
-                let emsg = format!("{} is neither a function, nor a language construct, it is a {}", callee, evaled);
+                let emsg = format!(
+                    "{} is neither a function, nor a language construct, it is a {}",
+                    callee, evaled
+                );
                 return Err(emsg);
             }
         }
@@ -331,9 +341,15 @@ impl Interpreter {
                     return Ok(left);
                 }
             },
+            TokenType::And => {
+                if Interpreter::is_truthy(left.clone()) {
+                    return Ok(left);
+                } else {
+                    return Ok(self.interpret_expr(right)?);
+                }
+            }
             _ => {}
         }
-        // Otherwise actually eval our rhs
         self.interpret_expr(right)
     }
 
@@ -438,7 +454,6 @@ impl Interpreter {
             }
         }
     }
-
 }
 
 impl Default for Interpreter {
@@ -449,8 +464,11 @@ impl Default for Interpreter {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use super::Interpreter;
     use super::Value;
+    use crate::ast::ASTNode;
+    use crate::environment::Environment;
     use crate::parser::Parser;
     use crate::scanner::*;
     use crate::token::*;
@@ -458,12 +476,8 @@ mod tests {
     #[test]
     fn addition_test() {
         let test_str: String = "5 + 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Number(15.0);
         assert!(result == expected);
     }
@@ -471,12 +485,8 @@ mod tests {
     #[test]
     fn subtraction_test() {
         let test_str: String = "10 - 5;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Number(5.0);
         assert!(result == expected);
     }
@@ -484,12 +494,8 @@ mod tests {
     #[test]
     fn multiplication_test() {
         let test_str: String = "3 * 5;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Number(15.0);
         assert!(result == expected);
     }
@@ -497,12 +503,8 @@ mod tests {
     #[test]
     fn division_test() {
         let test_str: String = "100 / 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Number(10.0);
         assert!(result == expected);
     }
@@ -510,15 +512,8 @@ mod tests {
     #[test]
     fn string_concat() {
         let test_str: String = "\"Hello, \" + \"World!\";".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed);
-        println!("{:?}", result);
-        let result = result.unwrap().get(0).unwrap().clone();
-
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::String("Hello, World!".to_string());
         assert!(result == expected);
     }
@@ -526,12 +521,8 @@ mod tests {
     #[test]
     fn equality() {
         let test_str: String = "10 == 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -539,12 +530,8 @@ mod tests {
     #[test]
     fn inequality() {
         let test_str: String = "100 != 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -552,12 +539,8 @@ mod tests {
     #[test]
     fn gt() {
         let test_str: String = "100 > 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -565,12 +548,8 @@ mod tests {
     #[test]
     fn geq() {
         let test_str: String = "10 >= 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(true);
         assert!(result == expected);
     }
@@ -578,12 +557,8 @@ mod tests {
     #[test]
     fn lt() {
         let test_str: String = "100 < 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(false);
         assert!(result == expected);
     }
@@ -591,13 +566,143 @@ mod tests {
     #[test]
     fn leq() {
         let test_str: String = "10 <= 10;".to_string();
-        let mut s: Scanner = Scanner::new(test_str);
-        let tokens = s.scan_tokens();
-        let mut p: Parser = Parser::new(tokens);
-        let parsed = p.parse();
-        let mut i: Interpreter = Interpreter::new();
-        let result = i.interpret(parsed).unwrap().get(0).unwrap().clone();
+        let parsed = process(test_str);
+        let result = extract_retval(parsed);
         let expected = Value::Bool(true);
         assert!(result == expected);
+    }
+
+    #[test]
+    fn bind_test() {
+        let test = String::from(r#"
+          ligamen testVal = 1337;
+        "#);
+        let parsed = process(test);
+        let env = eval_and_extract_state(parsed);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let expected = Value::Number(1337.0);
+        assert!(env.get(symbol).unwrap() == expected);
+    }
+
+    #[test]
+    fn shadow_test() {
+        let test = String::from(r#"
+          ligamen testVal = "BAD";
+          ligamen testVal = 1337;
+        "#);
+        let parsed = process(test);
+        let env = eval_and_extract_state(parsed);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let expected = Value::Number(1337.0);
+        assert!(env.get(symbol).unwrap() == expected);
+    }
+
+    #[test]
+    fn globals() {
+        let test: String = String::from(r#"ligamen testVal = 0;
+        incantatio fun {
+          testVal = 1337;
+        }
+        fun();"#);
+        let parsed = process(test);
+        let env = eval_and_extract_state(parsed);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let expected = Value::Number(1337.0);
+        assert!(env.get(symbol).unwrap() == expected);
+    }
+
+    #[test]
+    fn assignment_test() {
+        let test = String::from(r#"
+          ligamen testVal = 0;
+          testVal = 1337;
+        "#);
+        let parsed = process(test);
+        let env = eval_and_extract_state(parsed);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let expected = Value::Number(1337.0);
+        assert!(env.get(symbol).unwrap() == expected);
+    }
+
+    #[test]
+    fn fundef() {
+        let test: String = String::from(r#"incantatio fun {
+          "Hi";
+        }"#);
+        let parsed = process(test);
+        let env = eval_and_extract_state(parsed);
+        let symbol = Token::new(TokenType::Identifier, String::from("fun"), Literal::Empty, 1);
+        let result = env.get(symbol.clone());
+        let expected = Some( Value::UserFn(UserFunction::new(
+            symbol,
+            vec![
+                Stmt::Expression(
+                    Expr::Literal(
+                        Literal::StrLit(String::from("Hi")),
+                    )
+                )
+            ]
+        )));
+        assert!(result == expected);
+    }
+
+    #[test]
+    fn bool_and() {
+        let test = String::from("ligamen testVal = verum et verum;");
+        let parsed = process(test);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
+        assert!(expected == true);
+    }
+
+
+    #[test]
+    fn bool_or() {
+        let test = String::from("ligamen testVal = verum vel verum;");
+        let parsed = process(test);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
+        assert!(expected == true);
+    }
+
+    #[test]
+    fn truthynes_numbers() {
+        let test = String::from("ligamen a = verum; ligamen b = 5; ligamen testVal = ( a et b );");
+        let parsed = process(test);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
+        assert!(expected == true);
+    }
+
+    #[test]
+    fn truthynes_strings() {
+        let test = String::from("ligamen a = verum; ligamen b = \"hi\"; ligamen testVal = ( a et b );");
+        let parsed = process(test);
+        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
+        assert!(expected == true);
+    }
+
+    fn process(testcase: String) -> Vec<ASTNode> {
+        let lexed = Scanner::scan(testcase);
+        Parser::parse(lexed)
+    }
+
+    fn extract_retval(ast: Vec<ASTNode>) -> Value {
+        let mut i: Interpreter = Interpreter::new();
+        i.interpret(ast).unwrap().get(0).unwrap().clone()
+    }
+
+    fn eval_and_extract_state(ast: Vec<ASTNode>) -> Environment {
+        let mut i: Interpreter = Interpreter::new();
+        let x = i.interpret(ast);
+        dbg!(i.environment.clone());
+        println!("{:?}", x);
+        i.environment
+    }
+
+    fn eval_and_expect(ast: Vec<ASTNode>, expected: Option<Value>, symb: Token) -> bool {
+        let state = eval_and_extract_state(ast);
+        state.get(symb) == expected
     }
 }

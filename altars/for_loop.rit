@@ -1,0 +1,8 @@
+ligamen a = 0;
+ligamen t;
+
+enim(ligamen b = 1; b < 100; b = t + b) {
+  scribo a;
+  t = a;
+  a = b;
+}

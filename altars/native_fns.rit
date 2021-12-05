@@ -1,0 +1,8 @@
+horologium();
+ligamen currTime = tempus;
+scribo currTime;
+manere();
+horologium();
+ligamen newTime = tempus;
+scribo newTime;
+scribo newTime - currTime;
