@@ -70,13 +70,20 @@ impl Parser {
     /// Grab the function name, and the actual body of the function.
     fn function(&mut self) -> Stmt {
         let name = self.consume(TokenType::Identifier);
-
+        self.consume(TokenType::LeftParen);
         let mut params: Vec<Token> = Vec::new();
-
-
+        if self.check(TokenType::RightParen) == false {
+            loop {
+                params.push(self.consume(TokenType::Identifier));
+                if self.maybe_advance(vec![TokenType::Comma]) == false {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen);
         self.consume(TokenType::LeftBrace);
         let body = self.block();
-        Stmt::Function(name, body)
+        Stmt::Function(name, params, body)
     }
 
     /// Collect the variable name, then we need to see if we have an initializer
@@ -389,12 +396,29 @@ impl Parser {
     /// Extracts the name of the function, and (possibly) arguments
     /// and produces a new node with them.
     fn call(&mut self) -> Expr {
-        let expr = self.primary();
-        if self.maybe_advance(vec![TokenType::LeftParen]) {
-            let paren = self.consume(TokenType::RightParen);
-            return Expr::Call(Box::new(expr), paren);
+        let mut expr = self.primary();
+        loop {
+            if self.maybe_advance(vec![TokenType::LeftParen]) {
+                expr = self.parse_arglist(expr);
+            } else {
+                break;
+            }
         }
         return expr;
+    }
+
+    fn parse_arglist(&mut self, callee: Expr) -> Expr {
+        let mut args: Vec<Expr> = Vec::new();
+        if self.check(TokenType::RightParen) == false {
+            loop {
+                args.push(self.expression());
+                if !self.maybe_advance(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+        let paren = self.consume(TokenType::RightParen);
+        Expr::Call(Box::new(callee), paren, args)
     }
 
     /// Bottom case is primary expressions.

@@ -21,9 +21,9 @@ pub enum Stmt {
     Block(Vec<Stmt>),
     Class(Token, Vec<Stmt>),
     Expression(Expr),
-    //Function(Token, Vec<Token>, Vec<Stmt>),
+    Function(Token, Vec<Token>, Vec<Stmt>),
     // GlobalFunction.
-    Function(Token, Vec<Stmt>),
+    //Function(Token, Vec<Stmt>),
     If(Expr, Box<Stmt>, Box<Option<Stmt>>),
     Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
@@ -37,8 +37,8 @@ pub enum Stmt {
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
-    Call(Box<Expr>, Token),
-    //Call(Box<Expr>, Token, Vec<Expr>),
+    //Call(Box<Expr>, Token),
+    Call(Box<Expr>, Token, Vec<Expr>),
     Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Literal),
@@ -135,8 +135,8 @@ impl Display for Stmt {
             Stmt::Expression(expr) => {
                 write!(f, "EXPR: ( {} )", expr)
             }
-            Stmt::Function(name, body) => {
-                let mut rv = format!("Fn {}: Body: {{", name);
+            Stmt::Function(name, body, params) => {
+                let mut rv = format!("Fn {} ({:?}): Body: {{", name, params);
                 for stmt in body {
                     rv = format!("{} {}", rv, stmt);
                 }
@@ -157,7 +157,7 @@ impl Display for Expr {
         match self {
             Expr::Assign(_, _) => todo!(),
             Expr::Binary(_, _, _) => todo!(),
-            Expr::Call(_, _) => todo!(),
+            Expr::Call(_, _, _) => todo!(),
             Expr::Get(_, _) => todo!(),
             Expr::Grouping(_) => todo!(),
             Expr::Literal(x) => {

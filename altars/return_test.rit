@@ -1,19 +1,7 @@
-/*ligamen n = 0;
-
-incantatio test {
-  n = n + 1;
-  beneficium 5;
-  n = 1337;
-}
-
-scribo n;
-scribo test();
-test();
-scribo n;*/
-
 ligamen n = 0;
-incantatio test {
-  beneficum 5;
+incantatio test() {
+  scribo "Test";
+  beneficium 5;
 }
 ligamen n = test();
 scribo n;

@@ -1,0 +1,6 @@
+incantatio recurse(i) {
+  scribo i;
+  recurse(i + 1);
+}
+
+recurse(1);

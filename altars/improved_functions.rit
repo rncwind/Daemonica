@@ -1,0 +1,10 @@
+incantatio sayHiAgain(first, last) {
+  scribo "Inside another function are we now " + first + " " + last + "?";
+}
+
+incantatio sayHi(first, last) {
+  scribo "Hi, " + first + " " + last + "!";
+  sayHiAgain(first, last);
+}
+
+sayHi("Robert", "Olmstead");

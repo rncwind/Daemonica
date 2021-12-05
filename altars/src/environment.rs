@@ -5,26 +5,49 @@ use crate::{ast::Value, token::Token};
 
 #[derive(Clone, Debug)]
 pub struct Environment {
-    //pub enclosing: Option<Box<Environment>>,
+    pub parent: Option<Box<Environment>>,
     pub values: HashMap<String, Option<Value>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
         Environment {
-            //enclosing: None,
+            parent: None,
             values: HashMap::new(),
         }
     }
 
     pub fn from(e: Environment) -> Environment {
         Environment {
+            parent: None,
             values: e.values.clone(),
         }
     }
 
     pub fn from_ht(other: HashMap<String, Option<Value>>) -> Environment {
         Environment {
+            parent: None,
+            values: other.clone(),
+        }
+    }
+
+    pub fn with_parent(parent: Environment) -> Environment {
+        Environment {
+            parent: Some(Box::new(parent)),
+            values: HashMap::new(),
+        }
+    }
+
+    pub fn from_with_parent(e: Environment, parent: Environment) -> Environment {
+        Environment {
+            parent: Some(Box::new(parent)),
+            values: e.values.clone(),
+        }
+    }
+
+    pub fn from_ht_with_parent(other: HashMap<String, Option<Value>>, parent: Environment) -> Environment {
+        Environment {
+            parent: Some(Box::new(parent)),
             values: other.clone(),
         }
     }

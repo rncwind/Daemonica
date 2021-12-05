@@ -13,7 +13,7 @@ use crate::userfunction::UserFunction;
 #[derive(Debug)]
 pub struct Interpreter {
     pub environment: Environment,
-    retval: Option<Value>,
+    pub retval: Option<Value>,
 }
 
 //impl<T> Visitor<T> for Interpreter {
@@ -64,7 +64,7 @@ impl Interpreter {
             Expr::Binary(left, oper, right) => {
                 return self.interpret_binary(*left, oper, *right);
             }
-            Expr::Call(callee, paren) => self.interpret_call(*callee, paren),
+            Expr::Call(callee, paren, args) => self.interpret_call(*callee, paren, args),
             Expr::Get(object, name) => {
                 todo!()
             }
@@ -97,19 +97,34 @@ impl Interpreter {
             Stmt::Block(stmts) => self.interpret_block(stmts, self.environment.clone()),
             Stmt::Class(_, _) => todo!(),
             Stmt::Expression(expr) => self.interpret_expr(expr),
-            Stmt::Function(name, body) => self.interpret_function(name, body),
+            Stmt::Function(name, params, body) => self.interpret_function(name, body, params),
             Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
-            Stmt::Return(_, _) => return Ok(Value::Empty),
+            Stmt::Return(tok, val) => self.interpret_return(tok, val),
             Stmt::Var(tok, initializer) => self.interpret_var_stmt(tok, initializer),
             Stmt::While(cond, body) => self.interpret_while(&cond, body),
             Stmt::Print(expr) => self.interpret_print(expr),
         }
     }
 
-    fn interpret_function(&mut self, name: Token, body: Vec<Stmt>) -> Result<Value, String> {
-        let fun = Value::UserFn(UserFunction::new(name.clone(), body));
+    fn interpret_function(&mut self, name: Token, body: Vec<Stmt>, params: Vec<Token>) -> Result<Value, String> {
+        let fun = Value::UserFn(UserFunction::new(name.clone(), body, params));
         self.environment.define(name.lexeme, Some(fun.clone()));
         Ok(Value::Empty)
+    }
+
+    fn interpret_return(&mut self, tok: Token, val: Option<Expr>) -> Result<Value, String> {
+        match val {
+            Some(x) => {
+                let evaled = self.interpret_expr(x)?;
+                let val: Value = evaled.into();
+                self.retval = Some(val.clone());
+                return Ok(val.clone());
+            },
+            None => {
+                self.retval = None;
+                return Ok(Value::Empty);
+            }
+        }
     }
 
     fn interpret_print(&mut self, expr: Expr) -> Result<Value, String> {
@@ -263,7 +278,7 @@ impl Interpreter {
         }
     }
 
-    fn interpret_call(&mut self, callee: Expr, _paren: Token) -> Result<Value, String> {
+    fn interpret_call(&mut self, callee: Expr, _paren: Token, args: Vec<Expr>) -> Result<Value, String> {
         let evaled = match callee {
             Expr::Variable(ref v) => match self.environment.get(v.clone()) {
                 Some(f) => f,
@@ -281,6 +296,10 @@ impl Interpreter {
                 return Err(emsg);
             }
         };
+        let mut evaledArgs: Vec<Value> = Vec::new();
+        for arg in args {
+            evaledArgs.push(self.interpret_expr(arg)?);
+        }
         match evaled {
             Value::NativeFn(f) => match f.call(self, vec![]) {
                 Ok(_) => {
@@ -290,9 +309,18 @@ impl Interpreter {
                     return Err(e);
                 }
             },
-            Value::UserFn(f) => match f.call(self) {
-                Ok(mutated) => {
+            Value::UserFn(f) => match f.call(self, evaledArgs) {
+                Ok((mutated, retval)) => {
                     self.environment = mutated;
+                    self.retval = retval.clone();
+                    match retval {
+                        Some(rv) => {
+                            return Ok(rv);
+                        },
+                        None => {
+                            return Ok(Value::Empty);
+                        }
+                    }
                 }
                 Err(failure) => {
                     let emsg = failure.1;
