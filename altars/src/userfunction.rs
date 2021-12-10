@@ -1,4 +1,7 @@
 //! Type of all functions defined in Daemonica.
+use core::fmt;
+use std::fmt::Display;
+
 use crate::{
     ast::{Expr, Stmt, Value},
     environment::Environment,
@@ -47,5 +50,14 @@ impl UserFunction {
             scope.define(name.lexeme.clone(), Some(arg.clone()));
         }
         scope
+    }
+}
+
+impl Display for UserFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = self.symbol.lexeme.clone();
+        let params: Vec<String> = self.paramlist.iter().map(|x| x.lexeme.clone()).collect();
+        let params = params.join(", ");
+        write!(f, "{} :: ({})", name, params)
     }
 }

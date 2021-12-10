@@ -19,11 +19,8 @@ pub enum ASTNode {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>),
-    //Class(Token, Vec<Stmt>),
     Expression(Expr),
     Function(Token, Vec<Token>, Vec<Stmt>),
-    // GlobalFunction.
-    //Function(Token, Vec<Stmt>),
     If(Expr, Box<Stmt>, Box<Option<Stmt>>),
     Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
@@ -37,14 +34,10 @@ pub enum Stmt {
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
-    //Call(Box<Expr>, Token),
     Call(Box<Expr>, Token, Vec<Expr>),
-    //Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Literal),
     Logic(Box<Expr>, Token, Box<Expr>),
-    //Set(Box<Expr>, Token, Box<Expr>),
-    //This(Token),
     Unary(Token, Box<Expr>),
     Variable(Token),
 }
@@ -106,10 +99,8 @@ impl Display for Value {
                 write!(f, "{}", x)
             }
             Value::UserFn(x) => {
-                write!(f, "{:?}", x)
-            } //Value::Symbol(n, v) => {
-              //write!(f, "{} = {}", n, *v)
-              //}
+                write!(f, "{}", x)
+            }
         }
     }
 }

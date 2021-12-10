@@ -772,6 +772,84 @@ mod tests {
         assert!(expected == true);
     }
 
+    #[test]
+    fn unary_test() {
+        let test = String::from("ligamen testVal = !verum;");
+        let parsed = process(test);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
+        let expected = eval_and_expect(parsed, Some(Value::Bool(false)), symbol);
+        assert!(expected == true);
+    }
+
+    #[test]
+    fn while_test() {
+        let test = String::from("ligamen testVal = 0; dum(testVal < 100) { scribo testVal; testVal = testVal + 1; }");
+        let parsed = process(test);
+
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
+        let expected = eval_and_expect(parsed, Some(Value::Number(100.0)), symbol);
+        assert!(expected == true);
+    }
+
+    #[test]
+    fn if_test() {
+        let test = String::from("ligamen testVal = 0; si(testVal == 0) { testVal = 1337; }");
+
+        let parsed = process(test);
+
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
+        let expected = eval_and_expect(parsed, Some(Value::Number(1337.0)), symbol);
+        assert!(expected == true);
+    }
+
+
+    #[test]
+    fn else_test() {
+        let test = String::from("ligamen testVal = 0; si(testVal == 1) { testVal = 1312; } aliter { testVal = 1337; }");
+
+        let parsed = process(test);
+
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
+        let expected = eval_and_expect(parsed, Some(Value::Number(1337.0)), symbol);
+        assert!(expected == true);
+    }
+
+    #[test]
+    fn ret_test() {
+        let test = String::from("incantatio test(x) { beneficium x + 1; } ligamen testVal = test(1);");
+
+        let parsed = process(test);
+
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
+        let expected = eval_and_expect(parsed, Some(Value::Number(2.0)), symbol);
+        assert!(expected == true);
+    }
+
     fn process(testcase: String) -> Vec<ASTNode> {
         let lexed = Scanner::scan(testcase);
         Parser::parse(lexed)
