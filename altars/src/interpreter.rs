@@ -65,12 +65,7 @@ impl Interpreter {
                 return self.interpret_binary(*left, oper, *right);
             }
             Expr::Call(callee, paren, args) => self.interpret_call(*callee, paren, args),
-            Expr::Get(object, name) => {
-                todo!()
-            }
             Expr::Grouping(expression) => {
-                // Destructure the expression and recursivley interpret it's
-                // subexpressions
                 return self.interpret_expr(*expression);
             }
             Expr::Literal(value) => {
@@ -78,12 +73,6 @@ impl Interpreter {
             }
             Expr::Logic(left, operator, right) => {
                 return self.interpret_logical(*left, operator, *right);
-            }
-            Expr::Set(object, name, value) => {
-                todo!()
-            }
-            Expr::This(keyword) => {
-                todo!()
             }
             Expr::Unary(operator, right) => {
                 return self.interpret_unary(operator, *right);
@@ -95,7 +84,6 @@ impl Interpreter {
     pub fn interpret_stmt(&mut self, stmt: Stmt) -> Result<Value, String> {
         match stmt {
             Stmt::Block(stmts) => self.interpret_block(stmts, self.environment.clone()),
-            Stmt::Class(_, _) => todo!(),
             Stmt::Expression(expr) => self.interpret_expr(expr),
             Stmt::Function(name, params, body) => self.interpret_function(name, body, params),
             Stmt::If(cond, thenb, elseb) => self.interpret_if(cond, thenb, elseb),
@@ -106,7 +94,12 @@ impl Interpreter {
         }
     }
 
-    fn interpret_function(&mut self, name: Token, body: Vec<Stmt>, params: Vec<Token>) -> Result<Value, String> {
+    fn interpret_function(
+        &mut self,
+        name: Token,
+        body: Vec<Stmt>,
+        params: Vec<Token>,
+    ) -> Result<Value, String> {
         let fun = Value::UserFn(UserFunction::new(name.clone(), body, params));
         self.environment.define(name.lexeme, Some(fun.clone()));
         Ok(Value::Empty)
@@ -119,7 +112,7 @@ impl Interpreter {
                 let val: Value = evaled.into();
                 self.retval = Some(val.clone());
                 return Ok(val.clone());
-            },
+            }
             None => {
                 self.retval = None;
                 return Ok(Value::Empty);
@@ -145,8 +138,6 @@ impl Interpreter {
                 }
             }
         }
-        //self.environment = prevenv;
-
         Ok(Value::Empty)
     }
 
@@ -278,7 +269,22 @@ impl Interpreter {
         }
     }
 
-    fn interpret_call(&mut self, callee: Expr, _paren: Token, args: Vec<Expr>) -> Result<Value, String> {
+    /// Interprets function calls.
+    /// Any returned Value will be evaluated as an RHS in the case of a variable
+    /// definition statement.
+    ///
+    /// # Example
+    /// ```
+    /// ligamen a = horologium();
+    /// scribo a;
+    /// ```
+    /// In this case, a will contain the current unix time stamp.
+    fn interpret_call(
+        &mut self,
+        callee: Expr,
+        _paren: Token,
+        args: Vec<Expr>,
+    ) -> Result<Value, String> {
         let evaled = match callee {
             Expr::Variable(ref v) => match self.environment.get(v.clone()) {
                 Some(f) => f,
@@ -301,9 +307,18 @@ impl Interpreter {
             evaledArgs.push(self.interpret_expr(arg)?);
         }
         match evaled {
-            Value::NativeFn(f) => match f.call(self, vec![]) {
-                Ok(_) => {
-                    dbg!(self.environment.clone());
+            Value::NativeFn(f) => match f.call(self, evaledArgs) {
+                Ok(retval) => {
+                    //dbg!(self.environment.clone());
+                    self.retval = retval.clone();
+                    match retval {
+                        Some(rv) => {
+                            return Ok(rv)
+                        },
+                        None => {
+                            return Ok(Value::Empty)
+                        },
+                    }
                 }
                 Err(e) => {
                     return Err(e);
@@ -316,7 +331,7 @@ impl Interpreter {
                     match retval {
                         Some(rv) => {
                             return Ok(rv);
-                        },
+                        }
                         None => {
                             return Ok(Value::Empty);
                         }
@@ -335,12 +350,6 @@ impl Interpreter {
                 return Err(emsg);
             }
         }
-        return Ok(Value::Empty);
-        //dbg!(self.environment.clone());
-    }
-
-    fn interpret_get(&mut self, object: Expr, name: Token) -> Result<Value, String> {
-        todo!()
     }
 
     fn interpret_literal(&mut self, value: Literal) -> Result<Value, String> {
@@ -368,7 +377,7 @@ impl Interpreter {
                 } else if !Interpreter::is_truthy(left.clone()) {
                     return Ok(left);
                 }
-            },
+            }
             TokenType::And => {
                 if Interpreter::is_truthy(left.clone()) {
                     return Ok(left);
@@ -492,9 +501,9 @@ impl Default for Interpreter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::Interpreter;
     use super::Value;
+    use super::*;
     use crate::ast::ASTNode;
     use crate::environment::Environment;
     use crate::parser::Parser;
@@ -602,74 +611,106 @@ mod tests {
 
     #[test]
     fn bind_test() {
-        let test = String::from(r#"
+        let test = String::from(
+            r#"
           ligamen testVal = 1337;
-        "#);
+        "#,
+        );
         let parsed = process(test);
         let env = eval_and_extract_state(parsed);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            3,
+        );
         let expected = Value::Number(1337.0);
         assert!(env.get(symbol).unwrap() == expected);
     }
 
     #[test]
     fn shadow_test() {
-        let test = String::from(r#"
+        let test = String::from(
+            r#"
           ligamen testVal = "BAD";
           ligamen testVal = 1337;
-        "#);
+        "#,
+        );
         let parsed = process(test);
         let env = eval_and_extract_state(parsed);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            3,
+        );
         let expected = Value::Number(1337.0);
         assert!(env.get(symbol).unwrap() == expected);
     }
 
     #[test]
     fn globals() {
-        let test: String = String::from(r#"ligamen testVal = 0;
-        incantatio fun {
+        let test: String = String::from(
+            r#"ligamen testVal = 0;
+        incantatio fun() {
           testVal = 1337;
         }
-        fun();"#);
+        fun();"#,
+        );
         let parsed = process(test);
         let env = eval_and_extract_state(parsed);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            3,
+        );
         let expected = Value::Number(1337.0);
         assert!(env.get(symbol).unwrap() == expected);
     }
 
     #[test]
     fn assignment_test() {
-        let test = String::from(r#"
+        let test = String::from(
+            r#"
           ligamen testVal = 0;
           testVal = 1337;
-        "#);
+        "#,
+        );
         let parsed = process(test);
         let env = eval_and_extract_state(parsed);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 3);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            3,
+        );
         let expected = Value::Number(1337.0);
         assert!(env.get(symbol).unwrap() == expected);
     }
 
     #[test]
     fn fundef() {
-        let test: String = String::from(r#"incantatio fun {
+        let test: String = String::from(
+            r#"incantatio fun() {
           "Hi";
-        }"#);
+        }"#,
+        );
         let parsed = process(test);
         let env = eval_and_extract_state(parsed);
-        let symbol = Token::new(TokenType::Identifier, String::from("fun"), Literal::Empty, 1);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("fun"),
+            Literal::Empty,
+            1,
+        );
         let result = env.get(symbol.clone());
-        let expected = Some( Value::UserFn(UserFunction::new(
+        let expected = Some(Value::UserFn(UserFunction::new(
             symbol,
-            vec![
-                Stmt::Expression(
-                    Expr::Literal(
-                        Literal::StrLit(String::from("Hi")),
-                    )
-                )
-            ]
+            vec![Stmt::Expression(Expr::Literal(Literal::StrLit(
+                String::from("Hi"),
+            )))],
+            vec![],
         )));
         assert!(result == expected);
     }
@@ -678,17 +719,26 @@ mod tests {
     fn bool_and() {
         let test = String::from("ligamen testVal = verum et verum;");
         let parsed = process(test);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
         let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
         assert!(expected == true);
     }
-
 
     #[test]
     fn bool_or() {
         let test = String::from("ligamen testVal = verum vel verum;");
         let parsed = process(test);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
         let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
         assert!(expected == true);
     }
@@ -697,16 +747,27 @@ mod tests {
     fn truthynes_numbers() {
         let test = String::from("ligamen a = verum; ligamen b = 5; ligamen testVal = ( a et b );");
         let parsed = process(test);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
         let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
         assert!(expected == true);
     }
 
     #[test]
     fn truthynes_strings() {
-        let test = String::from("ligamen a = verum; ligamen b = \"hi\"; ligamen testVal = ( a et b );");
+        let test =
+            String::from("ligamen a = verum; ligamen b = \"hi\"; ligamen testVal = ( a et b );");
         let parsed = process(test);
-        let symbol = Token::new(TokenType::Identifier, String::from("testVal"), Literal::Empty, 1);
+        let symbol = Token::new(
+            TokenType::Identifier,
+            String::from("testVal"),
+            Literal::Empty,
+            1,
+        );
         let expected = eval_and_expect(parsed, Some(Value::Bool(true)), symbol);
         assert!(expected == true);
     }

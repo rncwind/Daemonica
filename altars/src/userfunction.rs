@@ -15,19 +15,23 @@ pub struct UserFunction {
 
 impl UserFunction {
     pub fn new(symbol: Token, body: Vec<Stmt>, paramlist: Vec<Token>) -> UserFunction {
-        UserFunction { symbol, body,  paramlist}
+        UserFunction {
+            symbol,
+            body,
+            paramlist,
+        }
     }
 
     pub fn call(
         &self,
         interpreter: &mut Interpreter,
-        args: Vec<Value>
+        args: Vec<Value>,
     ) -> Result<(Environment, Option<Value>), (Environment, String)> {
         //dbg!(args.clone());
         let scope_copy = interpreter.environment.clone();
         let scope_copy = self.parse_arguments(scope_copy.clone(), args.clone());
         match interpreter.interpret_block(self.body.clone(), scope_copy.clone()) {
-            Ok(x) => {
+            Ok(_) => {
                 // Execution successful, return the modified scope.
                 return Ok((interpreter.environment.clone(), interpreter.retval.clone()));
             }

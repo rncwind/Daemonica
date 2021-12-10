@@ -19,7 +19,7 @@ pub enum ASTNode {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>),
-    Class(Token, Vec<Stmt>),
+    //Class(Token, Vec<Stmt>),
     Expression(Expr),
     Function(Token, Vec<Token>, Vec<Stmt>),
     // GlobalFunction.
@@ -39,12 +39,12 @@ pub enum Expr {
     Binary(Box<Expr>, Token, Box<Expr>),
     //Call(Box<Expr>, Token),
     Call(Box<Expr>, Token, Vec<Expr>),
-    Get(Box<Expr>, Token),
+    //Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Literal),
     Logic(Box<Expr>, Token, Box<Expr>),
-    Set(Box<Expr>, Token, Box<Expr>),
-    This(Token),
+    //Set(Box<Expr>, Token, Box<Expr>),
+    //This(Token),
     Unary(Token, Box<Expr>),
     Variable(Token),
 }
@@ -124,14 +124,6 @@ impl Display for Stmt {
                 }
                 write!(f, "{} )", rv)
             }
-            Stmt::Class(token, body) => {
-                let mut rv = String::from("CLASS: (");
-                rv = format!("{} {}", rv, token);
-                for stmt in body {
-                    rv = format!("{} {}", rv, stmt);
-                }
-                write!(f, "{} )", rv)
-            }
             Stmt::Expression(expr) => {
                 write!(f, "EXPR: ( {} )", expr)
             }
@@ -158,14 +150,11 @@ impl Display for Expr {
             Expr::Assign(_, _) => todo!(),
             Expr::Binary(_, _, _) => todo!(),
             Expr::Call(_, _, _) => todo!(),
-            Expr::Get(_, _) => todo!(),
             Expr::Grouping(_) => todo!(),
             Expr::Literal(x) => {
                 write!(f, "\"{}\"", x)
             }
             Expr::Logic(_, _, _) => todo!(),
-            Expr::Set(_, _, _) => todo!(),
-            Expr::This(_) => todo!(),
             Expr::Unary(_, _) => todo!(),
             Expr::Variable(_) => todo!(),
         }

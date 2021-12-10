@@ -45,7 +45,10 @@ impl Environment {
         }
     }
 
-    pub fn from_ht_with_parent(other: HashMap<String, Option<Value>>, parent: Environment) -> Environment {
+    pub fn from_ht_with_parent(
+        other: HashMap<String, Option<Value>>,
+        parent: Environment,
+    ) -> Environment {
         Environment {
             parent: Some(Box::new(parent)),
             values: other.clone(),

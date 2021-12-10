@@ -547,7 +547,7 @@ mod tests {
     fn fundecl() {
         let test: String = String::from(
             r#"
-        incantatio fun {
+        incantatio fun() {
           "Hi";
         }"#,
         );
@@ -560,6 +560,7 @@ mod tests {
                 Literal::Empty,
                 2,
             ),
+            vec![],
             vec![Stmt::Expression(Expr::Literal(Literal::StrLit(
                 String::from("Hi"),
             )))],
@@ -581,7 +582,7 @@ mod tests {
     fn return_test() {
         let test = String::from(
             r#"
-        incantatio fun {
+        incantatio fun() {
           beneficium 5;
         }"#,
         );
@@ -593,6 +594,7 @@ mod tests {
                 Literal::Empty,
                 2,
             ),
+            vec![],
             vec![Stmt::Return(
                 Token::new(
                     TokenType::Return,
@@ -610,7 +612,7 @@ mod tests {
     fn return_nothing() {
         let test = String::from(
             r#"
-        incantatio fun {
+        incantatio fun() {
           beneficium;
         }"#,
         );
@@ -622,6 +624,7 @@ mod tests {
                 Literal::Empty,
                 2,
             ),
+            vec![],
             vec![Stmt::Return(
                 Token::new(
                     TokenType::Return,

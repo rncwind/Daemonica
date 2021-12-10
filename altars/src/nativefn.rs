@@ -32,12 +32,10 @@ impl NativeFn {
         format!("{}.{}", self.name, self.arity)
     }
 
-    pub fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, String> {
+    pub fn call(&self, interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Option<Value>, String> {
         let res = (self.func)(interpreter, args)?;
-        interpreter
-            .environment
-            .define(String::from("tempus"), Some(res.clone()));
-        Ok(res)
+        //interpreter.retval = Some(res);
+        Ok(Some(res))
     }
 }
 
@@ -79,10 +77,20 @@ pub fn generate_native_functions() -> HashMap<String, Option<Value>> {
         String::from("manere"),
         Some(Value::NativeFn(NativeFn {
             name: "manere".to_string(),
-            arity: 0,
-            func: |_, _| {
-                thread::sleep(time::Duration::from_secs(5));
-                Ok(Value::Empty)
+            arity: 1,
+            func: |_, args| {
+                if args.len() != 1 {
+                    let emsg = format!("Attempted to call manere with {} args but expected 1", args.len());
+                    return Err(emsg);
+                }
+                let arg = args.first().unwrap();
+                match arg {
+                    Value::Number(x) => {
+                        thread::sleep(time::Duration::from_secs(x.round() as u64));
+                        return Ok(Value::Empty);
+                    },
+                    _ => { return Err(String::from("Attempted to call manere with a non-numeric argument")) }
+                }
             },
         })),
     );
